@@ -1,0 +1,2977 @@
+-------------------------------------------------------------------------------
+       Overview of Kakadu V7.10.2: A foundation for JPEG2000 applications
+       ------------------------------------------------------------------
+  Author: David Taubman, the University of New South Wales, Australia
+          -> see the end of this file for copyright and licensing information.
+  Disclaimer: The Kakadu framework represents a collection of software
+       development tools, which may be of assistance in developing JPEG2000-
+       based applications.  Neither the author, nor the university accept
+       any responsibility for the way in which these tools are used.
+-------------------------------------------------------------------------------
+    NEW in KDU-7.10.1
+    -----------------
+    This version was released within days of KDU-7.10 to correct a few
+    oversights related to robustness, which is a major theme for version
+    7.10.  Apart from a couple of minor bug fixes, the main contribution is
+    that this version is thoroughly hardened against accidental or malicious
+    memory overwrite vulnerabilities.
+ 
+    NEW in KDU-7.10
+    ---------------
+    This is a large update, with something valuable for almost everybody.
+    1. At the low level, this release applies a flexible yet rigorous memory
+       management structure to Kakadu, both at the core system level and in
+       most of the higher level components, allowing you to regulate and
+       monitor memory consumption and prevent catastrophic failures from
+       undisciplined or falacious memory allocation requests.  This is
+       especially important for the robustness of large systems in which
+       Kakadu may form one component that should not disturb the others.
+       With just a few lines of code, one can now bring disciplined control
+       to the allocation and accounting of memory allocations throughout
+       a Kakadu-based system, but with extra effort one can provide more
+       refined control.  Several of the demo-apps now come with a
+       "-mem_limit" argument that can be used to demonstrate these
+       capabilities.
+    2. At the opposite end of the scale, the kdu_macshow application
+       (kdu_show for MAC) has been substantially revamped to add more
+       usability features, demonstrate more of what the underlying API's
+       can do, and to form the cornerstone of what will be a platform
+       neutral rendering and navigation engine that can be deployed in
+       mobile and desktop environments with relatively little customization,
+       assuming only that basic OpenGL support is available.  This
+       should bear fruit in the next release, but for now you will find
+       that the kdu_macshow application is a good example of what Kakadu
+       can do in the rendering/browsing/animation space.  This includes:
+       a. Super responsive full retina rendering.
+       b. A rich set of decompression/rendering-backed animation
+          capabilities, including video, metadata-driven animations, and
+          user-driven dynamics that work with image surfaces of any size.
+       c. Interactive image/video/animation browsing via JPIP.
+       d. Integrated rendering and browsing of imagery and metadata.
+       e. Natural gesture recognition and window/view resizing controls.
+       f. Page transitions (and flicking) as an extra idiom for navigation
+          within rich multi-frame composited content, such as albums,
+          along with automatic multi-frame page rendering when content
+          is heavily zoomed out relative to the window dimensions.
+       g. Efficient all-OpenGL drawing, for both incremental and animated
+          rendering, including the drawing of scroll-bars, JPIP progress
+          bars, page boundaries, etc.
+    3. Beyond these two very large changes, there are a multitude of
+       improvements.
+       a. The use of stack-based variables has been reigned in to the extent
+          that typical uses cases should not consume more than 16kB of
+          stack-space per thread -- usually much less.
+       b. The underlying sample allocator that is used to manage the
+          efficient allocation of working memory for compression data
+          processing now provides for fragmented memory blocks, avoiding
+          some of the difficulties occasionally encountered when processing
+          truly huge images.
+       c. The JP2/JPX file-format parser is more tolerant of wrongly
+          constructed file headers and metadata that unfortunately still
+          show up in the wild.
+       d. The kdu_compress and kdu_expand demo apps work with more image
+          file types, including high precision PGM/PPM files and floating
+          point PFM files.
+       e. The kdu_v_compress and kdu_v_expand demo apps work with pretty
+          much all YUV files, in addition to the VIX files that have
+          always been well supported.  YUV file support now includes high
+          precisions, reading and writing, Y, RGB, and YUV formats with
+          common sub-samplings, and a fairly tolerant parser (or writer)
+          for common file name conventions that encode dimensions,
+          precision, colour space and frame rate information.  Moreover,
+          sequences of YUV files with numeric suffices can be automatically
+          read as a single source.
+       f. There are now fewer occasions when kdu_compress will warn about
+          potentially insufficient quantization precision if Qstep is not
+          explicitly specified, since the default policy now automatically
+          configures Qstep to take into account the channel bit-depth of
+          the source material.
+    4. A host of bug fixes for minor issues that have been uncovered by
+       us and advanced users, as documented in the usual updates list that
+       ships with licensed copies of the toolkit.
+
+    NEW in KDU-7.9.1
+    ----------------
+    1. Added Visual Studio 2015 workspace files and fixed a problem with
+       exception throwing destructors that is speciic to VS2015 builds.
+    2. Fixed a sigificant bug related to the processing of certain Part-2
+       DWT kernels (Arbitrary Transform Kernels feature) using high
+       performance AVX2 instructions.
+    3. Improved computational efficiency in a number of other places and
+       also fixed some very subtle bugs have never shown up in practice,
+       as far as we know, but might have done in the future.
+
+    NEW in KDU-7.9
+    --------------
+    1. This release is important for its many bug fixes.
+    2. This release provides new capabilities for low latency compression
+       across CBR (constant bit-rate) channels.  Specifically, the codestream
+       flushing process can now accurately model end-to-end delay and ensure
+       very low latencies between encoding and decoding.  The best way to
+       start in understanding this is by consulting new usage examples
+       provided in the "kdu_v_compress" section of the "Usage_Examples.txt"
+       file.
+    3. New parameter attributes Kkernels, Qfix16 and Qweights are introduced
+       to facilitate the use of Part-2 wavelet transforms (the Arbitrary
+       Transform Kernel feature) and the optimization of quantization
+       parameters for specific objectives.  While these are not strictly
+       new capabilities, the parameter selection process which they
+       automate is one that was rarely if ever undertaken manually.
+       The Qweights attribute should be of special interest to those trying
+       to maximize video compression throughput by combining Qstep-based
+       computation constraints with the usual post-compression rate-distortion
+       optimization algorithm which provides guaranteed bounds on compressed
+       size.
+    4. Other aspects of this release optimize operations that will become
+       more critical in an upcoming release where we plan to offer an
+       ultra high throughput block coding algorithm to support real-time
+       compression/decompression of 4K content and beyond.
+ 
+    NEW in KDU-7.8
+    --------------
+    The new features in this release are primarily related to HDR
+    (High Dynamic Range) content, in one way or another.  Specifically,
+    1. True floating point compression is now supported, including lossless
+       compression of many floating point formats such as half floats.
+    2. Correct generation and interpretation of the JPX pixel format box
+       introduced with Ammendment 3 to IS15444-2 (Part-2/Amd3), with
+       emphasis on the new pixel formats that re-interpret decompressed
+       output image component sample bit-patterns as floating-point or
+       fixed-point bit-patterns.  Both are useful for HDR content, since
+       they both allow super-luminous regions to be correctly represented
+       without gamut clipping.
+    3. Extensions to many of the JP2-family file format and rendering
+       tools so as to support the new HDR-friendly pixel formats.  In
+       particular, the `kdu_region_decompressor' and `kdu_region_compositor'
+       objects that lie at the heart of most rendering applications based
+       on Kakadu now transparently handle these new pixel formats, but also
+       offer considerable control over how the rendered content is generated
+       so that super-luminous or out-of-gamut colours can be preserved if
+       an application knows what to do with them.
+    4. Efficient compression of HDR type content is facilitated by the
+       introduction of full support for the Part-2 non-linear point transform
+       (NLT) feature.  In fact, with this addition, Kakadu now supports pretty
+       much any Part-2 JPEG2000 feature you are ever likely to need.
+       The only signficant unsupported Part-2 features are Trellis-Coded
+       Quantization and precinct-adaptive quantization, neither of which
+       are relevant to most of the differentiating applications for
+       JPEG2000.
+    5. Colour space conversions are now available at full floating-point
+       precision, where previously we offered only 16-bit fixed-point precision
+       conversions between different colour spaces during rendering.
+       Moreover the wide-gamut option (always existed) now offers much wider
+       gamut conversions when working at floating point precision.
+    6. The `kdu_region_decompressor' and `kdu_region_compositor' objects
+       now allow the application to configure one of four different
+       intensity-scaling modes.  Specifically, modes known as "true-zero"
+       and "true-max" can now be selectively turned on or off.  We refer to
+       these correctly as "true-intensity-scaling" or just "true-scaling"
+       modes.  The default behaviour, corresponding to the mechanisms used
+       prior to this release, has both "true-zero" and "true-max" modes
+       disabled.  This approach usually creates good renderings, with the
+       least reliance on colour-space related information, with the lowest
+       computational complexity.  However, Part-2/Amd3 describes a slightly
+       different set of intensity mapping procedures that are intended to
+       provide maximum colorimetric accuracy when mapping codestream image
+       components with one numerical description to colour space channels
+       with a different numerical description.
+          The specific mapping issue addressed by the "true-max" mode is that
+       the maximum intensity associated with a P-bit unsigned representation
+       is 2^P-1 (signed is 2^{P-1}-1), so that the correct transformation
+       of sample values with one precision to colour channels with a
+       different precision is never exactly a power of 2 (although it is
+       very nearly a power of 2 almost always).  The "true-max" mode ensures
+       absolutely correct scaling of intensities, while the default
+       behaviour (and that prior to this release) is to use power-of-2
+       scaling factors and correct for any distortions that are likely to
+       be visible by using `kdu_region_decompressor::set_white_stretch'.
+          The mapping issue addressed by the "true-zero" mode is primarily
+       the handling of negative values when signed representations are
+       employed at the codestream level (very rare).  The default behaviour
+       is to map these to a mid-level grey, which is arguably the most
+       useful approach for visualising scientific data.  The colorimetrically
+       correct approach, however, is to map 0 to black (true-zero).  More
+       broadly, the "true-zero" intensity scaling mode does a lot more than
+       this; it precisely accounts for the actual zero-luminance point
+       (known as "natural-zero") or achromatic point (for chominance
+       components) of the relevant colour space when converting between
+       different precisions as well as between signed and unsigned
+       representations, so as to preserve the most natural interpretation
+       of zero.
+          Combining "true-max" with "true-zero" generates mappings that
+       correctly preserve both the maximum intensity and the natural zero
+       intensity (black) or achromatic point of each colour channel
+       correctly, although possibly at some computational cost.  This
+       might not always be what you want to do, especially when visualising
+       scientific data, so the default modes remain unchanged.  Also, in
+       most common situations, the intensity scaling mode is irrelevant,
+       because original image components are usually identified in the
+       codestream as having an unsigned representation with exactly the
+       same precision (usually 8 bits) as that used to define the colour
+       space that is signalled in file format boxes.
+          Correct handling of the "true-max" case is more important in this
+       release than before, because it impacts the way in which the new
+       HDR-friendly float and fixpoint pixel formats are handled.  Where
+       these new data types are found, however, the "true-max" intensity
+       scaling policy is applied automatically and transparently.
+    7. Some of the demo-apps have been updated to add support for the
+       new features.  Notably: "kdu_compress" can now compress HDR content
+       for scientific or photographic applications; "kdu_expand" can
+       decompress such content, including the writing of true floating
+       point outputs to TIFF or raw image files; "kdu_render" can render
+       HDR content and can also be requested to selectively apply the
+       new "true-intensity-scaling" modes mentioned above; "kdu_macshow"
+       and "kdu_winshow" all handle the new types of content correctly; and
+       "kdu_merge" can preserve information carried via the new JPX
+       Pixel Format box when merging content from existing JPX sources into
+       new JPX output files.
+    8. Finally, additional SIMD accelerators have been provided for
+       both x86 and ARM/NEON platforms, to optimize the processing of
+       key data paths related to HDR imagery and key multi-component
+       transform data paths, as used in the compression of hyperspectral
+       content, virtual microscopy and other related applications.
+
+    NEW in KDU-7.7
+    --------------
+    The main new features in this release are advanced visual optimization
+    options for compression, plus a number of important improvements to
+    the Kakadu server and client components, along with the underlying
+    communications sub-system that supports them.  There are also a number
+    of very important bug fixes in this release.  In greater detail:
+    1. Introduced a neighbourhood contrast masking mechanism into the block
+       coding machinery.  This option, known as "Cvis", was first reported
+       in Taubman's EBCOT paper (IEEE Trans. Image Processing, 2001) that
+       formed the basis for the JPEG 2000 standard.  The method has been
+       reported on a number of occasions and by several different researchers
+       as yielding noteworthy improvements in visual compression performance,
+       although objective metrics such as PSNR will naturally give poorer
+       results when using such visual optimizations.
+          The "Cvis" option appears to be particularly compelling when
+       compressing large images with a wide variety of different contrasts,
+       but also when compressing sets of images jointly, or using
+       distortion-length slope thresholds (-slope) to specify image
+       quality levels.  Across a database of compressed content, using
+       "Cvis" with a "-slope" objective should give more consistent
+       visual quality for a given average compressed size than the other
+       methods available.  However, this is still a matter for
+       experimentation at the current stage.
+    2. Augmented the "kdu_compress" demo-app with various options to
+       automatically control visual weighting factors (CSF-weights), and
+       also with the option to pre-convert content from an RGB representation
+       to YCbCr with sub-sampled chroma components (similar to what is
+       usually done by default with regular JPEG compression and also by
+       common video codecs).  These options are not necessarily desirable
+       for all applications and they exist only to make it more convenient
+       to do things that have always been possible.  The "-rgb_to_420"
+       option to "kdu_compress" both converts to a chroma-subsampled
+       opponent space and configures reasonable visual weights by default,
+       which usually leads to good visual performance out of the box.
+       Add this to the "Cvis" options and some very interesting results
+       can be achieved easily.
+    3. JPIP Server improvements:
+       a.) The core network monitoring machiney is now more flexible and
+           energy efficient, which should be of benefit for applications
+           in which the server is deployed on a mobile device.
+       b.) Network state estimation (rate and delay) in the server is now
+           substantially improved, along with the introduction of better
+           congestion management that significantly impacts the
+           implementation of the HTTP-UDP transport protocol.
+       c.) Corrected a problem with progressive memory growth while
+           serving long animations or video.
+       d.) The "kdu_server" application now offers a "-daemon" mode, that
+           launches the JPIP service as a daemon on Unix-like operating
+           systems such as Linux and OSX.
+       e.) The HTTP-only transport is now much more efficient than it was,
+           although HTTP-TCP and HTTP-UDP remain the highest performance
+           transport protocols.
+    4. JPIP Client improvements:
+       a.) The `kdu_client' object now disconnects from a live service more
+           effectively and rapidly, while doing so gracefully.
+       b.) Problems with HTTP version identification in some locales (esp.
+           France) have now been resolved.
+    5. The core codestream parsing machinery is now largely robust to invalid
+       tile-part length values that sometimes popped up in corrupted or
+       mis-written content.  Third party tools could sometimes read such
+       content correctly because if they were parsing linearly through
+       the content, ignoring the tile-part length hints.  Kakadu still
+       uses all available hints and pointers in the codestream, but can
+       silently recover from problems it finds in the content.
+    6. Kakadu now supports all the ammendments documented in IS15444-1/AMD8
+       (Interoperable Master Format), including the IMF profiles that
+       were introduced with version 7.6 and updates to the elementary
+       stream metadata.
+    7. Bug fixes: all bugs reported up to this release have been fixed, plus
+       quite a number that were never reported.  Some of the more important
+       ones are: 
+       a.) Incorrect handling of nested rubber-length boxes (rare) in
+           JP2-family files has been fixed.
+       b.) A subtle bug affecting the rendering of certain multi-tile imagery
+           at high precision by `kdu_region_decompressor' has been fixed.
+           This bug was introduced accidentally into v7_6.
+       c.) A subtle problem with dynamic re-loading of certain types of
+           codestreams (non-seekable file-based with layer-progressive
+           order) during interactive viewing has been fixed.
+
+    NEW in KDU-7.6
+    --------------
+    This release is strongly focussed on mobile applications, providing just
+    about all the enhancements one could wish for to build high quality
+    mobile applications based on Kakadu.  While not included with this
+    release, we have developed an IOS application that does pretty much
+    everything that kdu_macshow/kdu_winshow does, plus quite a bit more.
+    This application is highly responsive even on older low-end iPhone/iPad
+    devices and even when working with huge source images, animations, etc.
+    Here is a brief list of the enabling tools, which are part of the
+    release:
+    1. ARM/NEON vector processing accelerators have now been extended to all
+       aspects of Kakadu for which x86-based accelerations exist.  This
+       includes wavelet transforms, multi-component transforms, quantization,
+       resampling, blending, compositing and a wide range of sample
+       precision/range/clipping operations.
+        -- while not specific to mobile applications, the x86-based
+           accelerators have also received upgrades to AVX2 for most of
+           these operations as well, including super-fast and highly
+           disciplined resampling operations.
+    2. Interactive media communications via JPIP is especially important for
+       mobile applications.  With this in mind, this release provides a
+       complete overhaul of the underlying `kdu_cache' that stores
+       incrementally communicated content from a JPIP server.  Most
+       significantly, the cache can now manage its total memory footprint,
+       providing all the necessary machinery to support both explicit
+       deletions of content and automatic evictions, while keeping a
+       remote JPIP server informed of all changes that should affect its
+       cache model, in a just-in-time manner (i.e., the server only learns
+       about changes relevant to the content that is actually being
+       requested).  The new cache handles long videos and animations much
+       better and the automatic eviction procedure works seemlessly.
+       The cache's multi-threaded implementation is substantially more
+       efficient than before, adopting a lockless model for the most
+       common operations so that multiple readers/writers can interact
+       with the cache while only occasionally needing to acquire exclusive
+       access to critical sections.
+    3. There are also a huge number of enhancements to the `kdu_client'
+       that sits on top of `kdu_cache' to deliver JPIP interactivity.
+       The client supports more functional cache files that can be
+       opened directly and tranferred between applications or users in 
+       order to augment an experience outside the loop of a JPIP
+       client-server connection.  Cache files can now easily be endowed
+       with a small preamble that is ideal for generating thumbnails or
+       summary views for image-pickers and that allows rapid opening
+       of a cache file, with background loading of the extra content
+       running as if there were a server involved.  The client supports
+       various strategies for managing cache files so that private
+       and recorded browsing modes can be easily swapped in and out.
+       The client provides reconnection capability now, so that a
+       previously lost connection can be re-established from any point.
+       Finally, the client provides much better handling for sources with
+       a massive number of codestreams, such as video and complex
+       animations.
+    4. The Kakadu core system provides a new `kdu_quality_limiter'
+       tool that provides a disciplined strategy for discarding
+       coded data  that will not impact the visual appearance of rendered
+       content at a given scale.  This tool uses disciplined visual
+       optimization principles, automatically folding in all relevant
+       features of the spatial and multi-component transforms, estimating
+       opponent properties of colour spaces and exploiting knowledge of
+       the current viewing resolution.  It should work across all possible
+       JPEG2000 transforms (spatial and multi-component) and it is easy
+       to drive from an application -- one needs only to provide an overall
+       quality number (that is related to visually weighted error) and an
+       estimate of the display resolution that is being driven.  The
+       tool can provide very substantial acceleration when rendering
+       high resolution or lossless content at reduced resolutions.  The
+       tool is especially well adapted to retina displays, whose extreme
+       resolution further reduces the visibility of much of the data that
+       might have been encoded.  Of course, as one zooms into the content,
+       the quality limiter's effect disappears but that is exactly the
+       right behaviour.  The tool's default behaviour is to leave
+       reversibly compressed (usually lossless) content alone when rendered
+       at full scale, but at other scales it can provide substantial
+       acceleration.  This new quality-limiting feature is made available
+       through a convenient interface within each major rendering API
+       offered by Kakadu, from the low-level `kdu_codestream' interface,
+       all the way up to the `kdu_region_decompressor' and
+       `kdu_region_compositor' interfaces, where all aspect of the
+       current resampling and re-orientation operations implemented by
+       these interfaces are taken into account.
+    5) The `kdu_region_compositor' object has been endowed with an expanded
+       concept of "scale".  The `set_scale' funtion now takes both a
+       "notional scale", and an optional adjustment to this notional scale
+       that represents a current "renderng scale".  This makes it extremely
+       easy to render content at a reduced resolution, while all aspects
+       of the rendered content, its dimensions and interaction with
+       metadata, animations and JPIP services, reflect the notional scale.
+       Composited buffers now carry around these two scales and their
+       associated dimensions so that components of an application that
+       present content to a display (or upload to texture units) can
+       readily rescale the rendered content back to its notional scale.
+       The intent, of course, is to support the common image rendering
+       modality found on mobile devices, where content is immediately
+       presented at a coarse scale to maximize responsiveness, after which
+       a detailed version overwrites the coarse one.  Unlike JPEG-based
+       image rendering, with JPEG2000 any pair of scales can be used
+       and this can be optimized for the device (e.g., standard resolution
+       first, overwritten by retina resolution a short while later).  The
+       changes to `kdu_region_compositor' are entirely transparent to
+       those who do not need this feature, while there are very few
+       changes indeed required to take full advantage of it in an
+       application.
+    6) In addition to the above, this release contains quite a few bug
+       fixes and minor enhancements in many areas.  A few of the
+       bug fixes are very signficant.  For example, there was a significant
+       flaw discovered in the resampling code within `kdu_region_decompressor'
+       and used by `kdu_region_compositor' that is likely to have reduced
+       the visual quality of a wide range of rendering applications.  We
+       strongly recommend all licensees to upgrade to this new release.
+
+    NEW in KDU-7.5
+    --------------
+    This release contains a number of major improvements and a valuable new
+    demonstration application that can be readily leveraged to build high
+    throughput video compression applications.  A high level summary of
+    most of the new features follows, but note that there are many smaller
+    changes that are not documented here.  As always, you should consult
+    the "Updates.txt" file that comes with each licensed distribution of
+    Kakadu for a more detailed list of changes.
+    1. We have gone right through all the SIMD acceleration branches in
+       Kakadu, removing obsolete branches, rationalising those that are
+       useful, and then enhancing them to cover new technologies.
+       -- One outcome of this work is that all SSSE3 dependent branches are
+          now found in their own files with conditional compilation so that
+          it is no longer necessary to globally enable SSSE3 at the compiler
+          level; this was causing illegal instruction issues when GCC-based
+          builds were run  on some very old platforms.
+       -- A second outcome of these changes is that AVX, AVX2 and FMA3
+          technologies are now leveraged extensively, on platforms where
+          they are available.
+       -- Another significant outcome is that we have integrated accelerations
+          based on the ARM-NEON SIMD instructions that parallel the x86
+          SIMD accelerations, for vitually all aspects of the Kakadu core
+          system, including colour transformation, DWT analysis and synthesis
+          (including Part-2 Arbitrary Transform Kernels and DWT-based
+          multi-component transforms) and dequantization/sign-magnitude
+          conversion.  An extensive set of NEON accelerations is also provided
+          for the data conversion paths taken by the `kdu_stripe_compressor'
+          and `kdu_stripe_decompressor' API's on top of which many
+          applications are built.
+    .  -- The speed-pack version of Kakadu now also exploits the BMI/BMI2 bit
+          manipulation instructions that are accessible on recent Intel-based
+          CPUs -- this has yielded  an increase in throughput of approximately
+          8% over earlier versions of the speed-pack.
+    2. A number of other efficiency enhancements have been introduced to
+       the Kakadu core system.  The `kdu_multi_analysis' and
+       `kdu_multi_synthesis' APIs that underpin almost all compression and
+       decompression applications now can accept externally provisioned
+       `kdu_sample_allocator' instances, which allows memory to be retained
+       across tile processing and/or frame processing activities but also
+       opens the door to custom control over the allocation of the memory
+       buffers used for sample data processing and local code-block buffering.
+       The number of atomic interlocked operations required in multi-threaded
+       processing has also been reduced through enhancements to the
+       `kdu_subband::open_block' and `kdu_subband::close_block' interfaces --
+       there can now be less than 1 bus locking operation per code-block in
+       total.
+    3) The high level `kdu_stripe_compressor' and `kdu_stripe_decompressor'
+       API's have been enhanced in several important ways.  More robust
+       cleanup/re-use mechanisms are now provided and memory can be retained
+       across successive uses of these objects, which can enhance performance
+       especially on platforms with multiple CPU packages/dies with NUMA
+       memory configurations.  More control is provided over the way in which
+       the stripe compressor/decompressor API's use the underlying
+       `kdu_multi_analysis'/`kdu_multi_synthesis' objects, exposing more
+       exotic rate control/codestream flushing capabilities and deep control
+       over the multi-threaded job architecture used for block coding/decoding.
+       All variants of the `kdu_stripe_decompressor::pull_stripe' function now
+       provide a `vectorized_store_prefs' argument that allows the application
+       to request the use of non-temporal (streaming) vector store operations
+       to optimize cache utilisation.  Previously, these things all required
+       application developers to provide a lot of their own code, working
+       directly with the lower level APIs.
+    4) Introduced a new demo app named "kdu_vcom_fast" that largely mirrors
+       the behaviour of "kdu_vex_fast", except that "kdu_vcom_fast" does
+       video compression, while "kdu_vex_fast" does video decompression (or
+       expansion).  The "kdu_vcom_fast" application is implemented in terms
+       of some new high level objects that are likely to prove useful to
+       a wide range of video compression applications.  The new application
+       supports all of Kakadu's rate control modalities and can write both
+       MJ2 video and JPX animations, adding JPX metadata on the fly, if
+       required.  The application can generate just about any kind of
+       codestreams, including Part-2 codestreams that use multi-component
+       transformations (e.g., for hyperspectral video) or the ultra-fast
+       block coding mode that can be around 50% faster than the normal
+       block coding mode.  Most importantly, "kdu_vcom_fast" allows the
+       compression workload to be partitioned into multiple frame
+       processing engines, each of which can be assigned any number of
+       processing threads.  The threads within each frame processing engine
+       collaborate tightly, while the individual engines are only very
+       loosely coupled, sharing rate control hints and access to a central
+       frame queue.  In this way, you can play around with the number of
+       frame processing engines and the degree of parallelism within each
+       engine to achieve optimal results for any given application.
+       Applications that require very low delay or memory can use as few
+       as one engine, throwing all processing resources into that engine,
+       but the highest throughput is often obtained with engines that
+       have somewhere between 4 and 16 threads each -- depends on cache
+       configurations, frame sizes and so forth.
+    5) Kakadu's CPU affinity control mechanisms have been revamped so as
+       to allow for the binding of threads to CPU resources on platforms
+       that have more than 64 logical CPUs.  Moreover, it is now possible
+       to bind specific subsets of the threads belonging to any given
+       `kdu_thread_env' thread-group to different sets of logical CPUs,
+       while also associating these threads with specific preferred work
+       domains.  For example, this allows you to assign an application's
+       main thread, or threads that preferentially perform DWT processing,
+       or the threads that preferentially perform background codestream
+       parsing/flusing operations, to particular logical CPU sets.
+       Both the "kdu_vex_fast" and "kdu_vcom_fast" demo apps support a
+       new command-line syntax for describing CPU affinity within this
+       framework.
+    6) This release includes quite a number of important minor efficiency
+       enhancements and bug fixes.  There is a critical fix to the
+       scheduled tile opening/closing mechanism introduced in version 7.4
+       that is heavily utilized by the stripe compressor/decompressor when
+       processing tiled images in multi-threaded environments.  There is a
+       critical fix in the core system to a multi-threaded logic error
+       that affected encoding on highly parallel systems (many CPU cores).
+       There is also a critical fix to Kakadu's JPIP client that affects
+       remote browsing of video and animations.  There are important fixes
+       to the underlying multi-threaded sub-system that affect the robust
+       handling of exceptions.
+
+    NEW in KDU-7.4
+    --------------
+    This release contains several major improvements, as follows:
+    1) The core codestream machinery has been augmented with the ability to
+       schedule tile opening and closing operations to be performed as
+       background tasks.  This complements the existing background parsing
+       and creation of J2K packet data (containers of code-block bit-streams)
+       so that both tiled and untiled codestreams can now be processed
+       without any (or many, depending on the structure) critical section
+       locks.  This substantially enhances processing throughput for tiled
+       workloads in multi-threaded applications.  The "kdu_buffered_compress"
+       and "kdu_buffered_expand" demo apps provide the most efficient
+       demonstrations of tiled codestream processing, exploiting these
+       newly introduced features -- for comrpession, be sure to use incremental
+       flushing (-flush_period) to realize maximum throughput.
+    2) The `kdu_stripe_compressor' and `kdu_stripe_decompressor' high level
+       API's and their internal implementation have been improved to yield
+       dramatically higher throughput for tiled compression/decompression
+       workloads in multi-threaded environments.  These interfaces are now
+       by far the preferred way to perform compression/decompression tasks
+       (apart from interactive rendering) unless you really know what you
+       are doing with the lower level API's such as `kdu_multi_analysis'
+       and `kdu_multi_synthesis'.
+    3) A new `ORGtpart_interrupts' coding parameter attribute has been added
+       to the core system, which is very useful when compressing tiled
+       imagery with incremental codestream flushing.  In multi-threaded
+       settings, this type of application used to cause uncertain numbers of
+       tile-parts to be generated which could prove problematic when generating
+       tile-length markers for random access (ORGgen_tlm).  Now the system
+       can provide hard guarantees on the number of tile-parts generated,
+       even when flushing the data in an uncertain order due to the interaction
+       between background incremental flushing and heavily multi-threaded
+       content generation.  This new parameter attribute allows you to control
+       these guarantees and their potential impact on delayed flushing of
+       content.  If your application involves tiled compression, definitely
+       read the description of these attribute and see the relevant usage
+       examples for "kdu_buffered_compress" in "Usage_Examples.txt".
+    4) The JPIP client now issues cache model manipulation statements
+       (where necessary) in such a way that there is no risk of very
+       long requests being dumped by a server that may be protecting
+       itself against DOS attacks by limiting the request length.
+    5) Major changes have been introduced into the JPIP client's internal
+       flow regulation machinery that is used for HTTP-only transported
+       requests as well as timed requests that are generated when browsing
+       video and other animated content.  This second application is the
+       one that is particularly sensitive to the flow regulation algorithm
+       since timing is everything where an animation is to be browsed
+       without losing responsiveness in the interactive experience.  The
+       changes have been tested on long distance high latency channels
+       with very good results.  Changes have also been introduced into the
+       `kdu_region_animator' object's implementation, again to improve the
+       performance of interactive video/animation browsing via JPIP.
+    6) There have been a number of key bug fixes and security fixes that
+       should be of interest to all licensees.  The core multi-threaded
+       sub-system previously had a weakness that could see deteriorating
+       performance over time that has now been fixed.  Java applications
+       that provided their own compressed data source in Java could have
+       suffered from a local reference growth problem that has been fixed.
+       For a full list of bug fixes and improvements, licensees should
+       consult the usual "Updates.txt" file.  We have our very large base
+       of licensees to thank for uncovering many of the issues that have
+       been fixed here, through a great diversity of applications.  We
+       are not aware of any bugs or vulnerabilities that have been reported
+       and not fixed by this release.
+
+    NEW in KDU-7.3.3
+    ----------------
+    This is mostly a bug fix release, with the bugs themselves being mostly
+    obscure.  They are documented in the Updates.txt file that is provided
+    with all licensed copies of Kakadu.  This version also eliminated a
+    whole pile of warning messages that first surfaced in the clang
+    compiler released with xcode-5.
+
+    NEW in KDU-7.3.2
+    ----------------
+    Additional acceleration for the resampling operations performed by
+    `kdu_region_decompressor' for certain types of imagery (also depends
+    on the target rendering scale).  The new accelerated code is at least
+    50% faster than before.  Additionally, this version includes a single
+    very minor, yet potentially serious bug fix.
+
+    NEW in KDU-7.3.1
+    ----------------
+    This version is primarily concerned with significant improvements to
+    the user interface behaviour of the "kdu_show" applications,
+    including better support for interactive panning of the view and/or a
+    focus box, rendering/animation under live resize/pan/scroll and
+    pan/zoom touch gestures for the "kdu_macshow" variant.
+
+    Additionally, this release includes a number of critical bug fixes.
+
+    NEW in KDU-7.3
+    --------------
+    This version contains a number of subtle yet very important bug fixes.
+    In particular, it fixes a subtle multi-threading race condition in the
+    core system (very hard to induce), plus quite a number of other issues
+    that are documented in the usual "Updates.txt" file.  Problems with the
+    channel state estimation logic in "kdu_server" are corrected and a
+    number of reported security vulnerabilities have been eliminated.
+    In addition, the following new features are provided:
+    -- The multi-threaded background processing capabilities of the core
+       system have been expanded to allow greater concurrency in background
+       processing for codestream generation.  This allows full processor
+       utilization to be achieved on platforms with very large numbers of
+       CPU cores (e.g., on server platforms which offer 48 hardware threads).
+    -- Added support for the Scalable Digital Camera profiles (known internally
+       as CINEMA2S, CINEMA4S and CINEMASS).
+    -- Replaced the use of deprecated drawing methods in "kdu_macshow" with
+       methods that are supported on the latest OSX SDK's and, more
+       importantly, migrated all drawing of animated content to OpenGL to
+       ensure tear-free rendering at full frame rate with maximum processing
+       efficiency.
+    -- Both versions of kdu_show (Windows and MAC) should now experience
+       improvements in interactive navigation during video and other
+       animated content due to some minor enhancements to the
+       high level platform independent `kdu_region_animator' object.
+    -- The `kdu_region_compositor' object provides support now for additional
+       compositing buffer formats via a `set_colour_order' function.
+
+    NEW in KDU-7.2.2
+    ----------------
+    This version exists pretty much entirely to fix residual bugs in the
+    channel state estimation logic within the "kdu_server" application.
+    This version also contains a number of subtle bug fixes for the
+    implementation of JPIP's HTTP-UDP transport option within Kakadu's
+    client and server components.
+
+    NEW in KDU-7.2.1
+    ----------------
+    Despite the minor version increment (7.2 to 7.2.1) this release is
+    actually quite substantial.  The reason for calling this 7.2.1 rather
+    than 7.3 is to align version numbers between regular Kakadu and the
+    Speed-Pack.
+       This release serves to wrap up quite a number of promised improvements
+    that had not made it into version 7.2.  The most significant of these is
+    that the `kdu_stripe_compressor' and `kdu_stripe_decompressor'
+    API's have been augmented with SIMD accelerations (x86 processors
+    only for now) that dramatically speed up the process of converting
+    between most application-defined buffers organizations (across a range
+    of data precisions) and Kakadu's four internal numerical representations.
+    Although these conversion and data reorganization steps are very simple,
+    doing them with regular sample-by-sample operations can lead to a
+    situation in which the inherently single-threaded data conversion
+    process dominates the overall performance of a compression or
+    decompression engine, since all other steps can be heavily multi-threaded.
+    The `kdu_stripe_compressor' and `kdu_stripe_decompressor' interfaces
+    are very convenient for application developers, but prior to this
+    release the most efficient way to drive Kakadu was to directly interface
+    to the more fundamental internal numeric representations via
+    `kdu_multi_analysis' or `kdu_multi_synthesis'.  This is not longer
+    necessary and probably not even desirable, since almost all conversions
+    and buffer reorganizations of interest are now handled automatically
+    and efficiently by the stripe-compressor/stripe-decompressor
+    interface.
+       The second useful feature of this release is that the makefiles
+    have been rationalized and have been augmented with a fully
+    configured set of makefiles for the MINGW-64 toolchain (Minimal GNU
+    toolchain for Win64).  This allows high quality binaries to be
+    built for 64-bit Windows operating systems without the need for
+    Microsoft's Visual Studio -- of course, though, to build the GUI
+    "kdu_winshow" application and the .NET managed bindings for C# and
+    Visual Basic, you would still need Visual Studio.  This means that
+    you can now build for the following operating systems directly using
+    the makefiles: Win64, OSX (32/64 bit Intel/PPC), Linux (32/64 bit) and
+    Solaris.  This is in addition to the Visual Studio workspaces (Win32
+    and Win64) and the XCODE project files (OSX 32/64 bit).
+       A third improvement is that you can now build the .NET managed
+    bindings for C# and Visual Basic using 64-bit binaries -- previously
+    these interfaces were only built for 32-bit libraries.  To build for
+    64-bit libraries, we had to overcome a known bug in Visual Studio 2010
+    and previous releases (was fixed only in VSTUDIO 2012) related
+    to 64-bit atomic intrinsics.
+       A fourth useful improvement is that the `kdu_multi_analysis' and
+    `kdu_multi_synthesis' interfaces, on top of which almost all
+    compression/decompression API's are built, can now automatically select
+    good double buffering parameters for interfacing multi-threaded DWT
+    (where selected) and multi-threaded block coding modules.  This
+    automatic option is now selected by default by all of the demo
+    applications, since it allows the amount of interface memory to be set
+    in a manner that is sensitive to the image dimensions and
+    processing precision so as to make better use of CPU cache resources.
+       The "kdu_buffered_compress" and "kdu_buffered_expand" demo
+    executables have been augmented to support more image file formats
+    (PPM and BMP) and to use the high speed conversions now present in
+    `kdu_stripe_compressor' and `kdu_stripe_decompressor' as effectively
+    as possible -- they are very fast, and indeed "kdu_buffered_compress"
+    is now generally faster than "kdu_compress", while being almost as
+    capable and vastly simpler to understand.  At the same time, an
+    in-memory image replication mode has been added to
+    "kdu_buffered_compress" to allow compression of very large images to
+    be tested without necessarily having access to a massive image on
+    the harddisk.
+       There are substantial improvements to the efficiency with which
+    new JPIP channels are instantiated by `kdu_client' (useful for apps
+    that want to set up a whole lot of parallel communication channels
+    at once).
+       There are also a few minor bug fixes in this release.
+
+    NEW in KDU-7.2
+    --------------
+    This release represents the best part of 1 year's continuous work to
+    improve the performance and features of Kakadu on numerous fronts, while
+    working with customers to ensure remove residual flaws in some of the
+    most demanding applications.  A lot of work has been invested in
+    integrating some of the most exciting new features in IS15444-2/AMD3
+    (this is a very large amendment to Part-2 of the JPEG2000 suite of
+    standards, that focusses on augmenting the capabilities of the JPX
+    file format).  With this release, JPIP video is also finally a reality.
+    The specific features of this release may be organized under the
+    following categories:
+    1) Multi-threaded core sub-system improvements
+       -- Introduced a new job queue design at the heart of the core
+          multi-threaded sub-system that involves an absolute minimum of
+          bus locking operations to enqueue and dequeue processing jobs.
+          Bus locking operations are a fundamental measurement of the cost
+          of synchronizing access to shared resources by multiple physical
+          processors.  The average combined number of bus locking
+          instructions (a.k.a. atomic instructions) required to both enqueue
+          and dequeue a processing job in Kakadu's distributed multi-threading
+          sub-system is less than 2 -- for reference, acquisition and release
+          of a critical section lock (just once) requires at least 2 bus
+          locking operations, but typically many more when the number of
+          CPU's becomes large.
+    2) New features for JPX files
+       -- Added comprehensive support for what we call "JPX containers"
+          (a.ka. Compositing Layer Extensions boxes), as well as
+          aggregated codestreams (a.k.a. Multiple Codestream boxes).
+          These are new features introduced by IS15444-2/AMD3 to support
+          efficient representation and remote access to files with a very
+          large number of compositing layers and/or codestreams.  The new
+          `jpx_source' and `jpx_target' implementations also correctly
+          generate and interpret metadata embedded within JPX
+          containers, which is by no means simple but can be used in
+          very powerful ways.
+       -- As a result, Kakadu and its demo applications now support
+          multiple JPX presentation threads (or tracks), each with their
+          own animation stream.  You can effectively build metadata that
+          references whole presentation tracks or portions of them in an
+          efficient way.
+       -- These new features also mean that Kakadu can very efficiently
+          encapsulate video (including live video -- i.e. where the sequence
+          length is unknown a priori or unbounded) within a JPX file and
+          access it in a random or streaming fashion via JPIP.  Prior to
+          these innovations, all codestreams and their header boxes needed to
+          live at the top level of a JPX file so that a massive number of
+          placeholder boxes (each ~28 bytes) might need to be sent to a
+          remote client as minimal representation for the codestreams
+          preceding one that might be of interest.
+       -- These innovations make JPX files an excellent choice for embedding
+          video, especially where auxiliary navigation or annotation metadata
+          is to be embedded as well, or for advanced applications such
+          as hyperspectral video using multi-component transforms for
+          both efficient compression and to enable a diversity of
+          presentation modes (via presentation threads).
+       -- Greatly enhanced the JPX metadata and animation management and
+          discovery features offered by Kakadu.  This has been done largely
+          in response to the new features implied by JPX containers.  You
+          can now: count tracks; count frames in a track; count temporal
+          duration of tracks or parts of tracks; and search for composited
+          frames that match number list descriptions, searching fowards or
+          backwards.  These features are very efficient and are designed to
+          work with content that may contain millions of frames and numerous
+          presentation tracks.  They are also designed to work with content
+          that is remotely located, so that it may be only partially
+          available in a local cache.
+       -- Extended Kakadu's JPX file writing capabilities, so that the
+          writing of metadata and imagery can be interleaved at will.
+          Metadata and imagery can be added on the fly and written
+          incrementally to the file.  Moreover, all of this is done in such
+          a way as to avoid polluting the top-level of the file with a large
+          number of boxes that would interfere with efficient random access
+          and interactive JPIP browsing.
+    3) JPIP support for video and animation as well as the new JPX features
+       -- Extended the `kdu_serve' interface and `kdu_servex' implementations
+          to correctly serve JPX files that use JPX containers (Compositing
+          Layer Extensions boxes) and Multiple Codestream boxes.
+       -- Augmented `kdu_region_animator' with the ability to calculate and
+          issue its own window-of-interest requests to a `kdu_client'
+          interface and to analyze the current status of those requests,
+          providing a simple yet comprehensive interface to applications
+          that are interested in JPIP video/animation services.  The
+          `kdu_region_animator' object provides all the state information and
+          machinery to manage the timing and request/response management
+          for JPIOP video and other more ellaborate animations, including
+          complex composted animations (defined by a remote JPX file) and/or
+          metadata-driven animations (defined by metadata selected by the
+          application or user).
+       -- To support JPIP video/animation, the `kdu_client' interface has
+          been augmented slightly to keep track of the status of posted
+          windows of interest and to allow so-called "timed requests" to
+          be posted.  The `kdu_client' interface simplifies the process of
+          determining when and how timed requests should be issued during
+          an interactive video/animation, so as to maximize the responsiveness
+          of the experience.  The interface is defined in such a way as to
+          tolerate drift between the clock domains used by the application
+          and the internal `kdu_client' machinery.
+    4) Improvements in rate control and codestream generation efficiency
+       -- Extended the core `kdu_compressed_target' class to support the
+          writing of structured codestream elements to a cache, as opposed
+          to sequentially writing a codestream in the conventional manner.
+          This is part of a long standing plan to realize fully integrated
+          live encoding, rendering and JPIP services, all brokered by a
+          real-time compressed data cache.  The newly defined "structured
+          cache" targets may choose to write the elements that arrive
+          (main header, tile headers and precincts) to a database, or to an
+          in-memory cache.  They may choose to later serialize the
+          elements into a conventional linear JPEG2000 codestream, or they
+          may choose to offer the cached elements to a decompression/rendering
+          engine, using Kakadu's well established cached compressed data
+          source interface.
+       -- At present, the most important benefit that can be derived from
+          structured cache compressed data targets is that incremental
+          codestream flushing is much more flexible and efficientt for such
+          targets than it is for linear codestream targets.  For a
+          structured cache target, incremental flushing does not require
+          the lower resolution components of the image to have very small
+          precincts.  As a result, huge untiled images can be compressed
+          and incrementally flushed to a structured cache target, regardless
+          of how many resolution levels are defined, so long as you define
+          moodest precinct sizes (e.g., `Cprecincts={128,128}').
+       -- Considerable effort has been invested in reducing the number of
+          simulation passes required by Kakadu's rate-control machinery,
+          since these simulation passes are inherently single-threaded so
+          that they can become a bottleneck on machines with many CPU cores.
+          The enhancements include better prediction of the distortion-length
+          slope thresholds that are likely to be most suitable, a new
+          algorithm to synthesize specifications for quality layers that
+          do not have hard bit-rate/comressed size constraints, and a number
+          of other measures.  As a result of these measures, the total number
+          of simulation passes required by a typical compression
+          application has been reduced by perhaps 5 or even 10 fold.
+       -- To support the enforcing of new High Frame Rate (HFR) Digital
+          Cinema profile specifications, the `Creslengths' attribute has
+          been augmented with a `Cagglengths' attribute that can be used
+          to define collections of image components whose aggregate
+          compressed sizes should conform to constraints offered by
+          `Creslengths'.  The mechanism is very flexible.
+    5) Enhancements to the demo apps
+       -- Upgraded the "kdu_merge" demo app to support generation of JPX
+          files with containers (Compositing Layer Extensions boxes).  This
+          has been done largely for testing purposes, but it allows some
+          very interesting configurations to be synthesized using
+          command-line options.
+       -- Upgraded "kdu_show" (Windows and MAC versions) to support
+          editing, interpretation and navigation for metadata embedded
+          within JPX containers.  The "kdu_show" applications now also
+          support the playback of multiple presentation tracks where
+          defined by JPX containers and the synthesizing of metadata-driven
+          animations that take advantage of all the features of JPX
+          containers.  For example, holding the shift key down while
+          double-clicking on a metadata entry that is embedded within
+          a JPX container will synthesize a metadata-driven animation that
+          plays out all the associated content from the container, taking
+          repetitions of the container into account.  These capabilities are
+          all realized using the underlying powerful API's, for which the
+          "kdu_show" application is a demonstration platform.
+       -- Upgraded the "kdu_v_compress" demo application to support writing
+          of video directly to a JPX file, along with metadata, taking
+          advantage of JPX containers.  This demo app now supports four
+          compressed video formats: MJ2, JPX, JPB (broadcast streams) and
+          MJC (raw) video streams.  It is the best platform on which to
+          build live video compression applications.  If you want to use
+          Part-2 codestream features for your video or embed rich
+          auxiliary metadata, or facilitate interactive access via JPIP,
+          JPX is by far the best choice, except that there is not currently
+          any support for audio in the JPX file format.
+       -- Upgraded the "kdu_v_expand" and "kdu_vex_fast" demo apps to support
+          JPX input files, processing the first codestream in each animation
+          frame -- of course JPX animations can be much more complex than
+          regular video, potentially involving many different codestreams,
+          composited in interesting ways, but these upgrades at least allow
+          "kdu_v_expand" and "kdu_vex_fast" to decompress video content
+          written to a JPX file by "kdu_v_compress".
+       -- Upgraded "kdu_server" to support JPX files with JPX containers.
+          Also substantially reduced the number of file handles and
+          synchronization objects required by "kdu_server" when serving
+          sources that contain a large number of embedded codestreams (such
+          as video, animations, or highly complex compositions).
+       -- All compression demo apps ("kdu_compress", "kdu_v_compress" and
+          "kdu_buffered_compress") now accept a "-tolerance" parameter that
+          may be used to regulate the accuracy of the rate control process,
+          trading accuracy against the number of simulation passes required
+          to achieve a target bit-rate.  Moreover, the default tolerance is
+          automatically set to +/-1% relative to 99% of the target bit-rate
+          and this is done uniformly.
+       -- "kdu_compress" now offers the possibility of using a
+          structured cache compressed data target. As noted above, these
+          are much better when incremental flushing of massive untiled
+          compressed images is required.  Currently, the structured cache
+          target is a "null" target that discards all of its data and is
+          instantiated whenever there is no supplied output file.  However,
+          this is only for testing purposes.  Application developers can
+          readily extend the `kdu_compressed_target' interface to provide
+          much more interesting structured cache targets.  In future releases
+          of Kakadu, some such derived target objects will be supplied
+          ready-built.
+       -- "kdu_compress" and "kdu_expand" now work to preserve ICC profiles
+          between TIFF and JP2/JPX files.  The Kakadu API's have supported
+          this for many years, but the feature was now demonstrated in these
+          demo apps, but many people have asked for this.
+    6) Bug fixes
+       -- This release incorporates quite a few bug fixes, most of which
+          are quite subtle or difficult to excite.  Details of bug fixes
+          are available in the usual "Updates.txt" file that ships with
+          licensed distributions.
+       -- One important feature of Kakadu is that it is very widely licensed;
+          most of the bugs that have been found recently have been discovered
+          by licensees, using Kakadu in particularly challenging ways.
+       -- A number of the corrected bugs address race conditions in the
+          `kdu_cache' object that had lain undiscovered for many years.
+       -- Other significant bugs were discovered and fixed in the encode-time
+          ROI compression logic, one of the high precision data conversion
+          paths in `kdu_stripe_compressor', the hyperdoc-generated Java
+          bindings for at least one API function, and the underlying
+          communication machinery used by Kakadu's client/server components.
+
+    NEW in KDU-7.1
+    --------------
+    This is an important upgrade that incorporates major improvements to the
+    multi-threaded core processing sub-system introduced in KDU-7.0, along
+    with numerous enhancements to other aspects of Kakadu and some new
+    features.  The KDU-7.1 release is the most stable, efficient and
+    comprehensive version of the regular Kakadu SDK on which to build
+    applications -- the speed-pack release has all the same features and
+    robustness, but can be substantially faster again.  Here is a brief
+    overview of what is new:
+    1) Multi-threaded processing sub-system improvements
+       -- This version contains the full realization of the background
+          codestream processing machinery that was envisaged for the
+          multi-threaded processing system as introduced in KDU-7.0.
+          Background machinery now manages look-ahead reading, parsing
+          and resourcing of code-block and precinct resources, without
+          substantially increasing memory consumption.  Background
+          incremental flushing of codestream content during compression
+          is also much more efficient.
+       -- This release greatly reduces the number of points at which threads
+          might need to take out locks on critical sections, to the extent
+          that multi-threaded processing is almost entirely lockless.
+          100% utilization of CPU resources is achievable even on machines
+          with many CPU cores, to the extent that I/O throughput is
+          adequate for the application of interest and that the
+          application can push/pull image data fast enough.
+       -- A number of bugs and highly unlikely race conditions have been
+          uncovered through exhaustive testing by us and our numerous
+          licensees.
+    2) New core codestream generation features
+       -- Added a new codestream parameter attribute `ORGplt_parts', that
+          can be used to control the points at which packet length information
+          (for random access to precinct data) is partitioned into PLT marker
+          segments.  This is useful in constructing codestreams that adhere to
+          recommended configurations described in the NITF JPEG2000 profile
+          specificaion.
+       -- Provided a new mechanism to discover the number of bytes consumed
+          by markers and marker attributes (i.e., non-packet header and
+          marker bytes).  This value is of interest because the `Creslengths'
+          attribute, which is widely used to ensure codestream conformance to
+          various industry profiles, constrains only the number of packet
+          bytes (packet header and packet body bytes).  The new feature allows
+          you to discover the number of additional bytes so that they can
+          be included in any required constraints.  The "kdu_v_compress"
+          application uses this feature to report additional information that
+          is particularly useful for the generation of codestreams that are
+          guaranteed to conform to the JP2 Broadcast profiles.
+       -- The rate control capabilities of `kdu_codestream::flush' and
+          `kdu_codestream::auto_flush' have been extended to allow for
+          simultaneous use of oth distortion-length slope thresholds and
+          layer size limits (measured in bytes).  Specifically, it is now
+          possible to provide desired slope thresholds (for reasonably
+          constant quality control), together with lower bounds on the
+          size of each quality layer, as well as absolute upper bounds on
+          the sizes of layers, by resolution (via `Creslengths') and the
+          rate control machinery will respect all objectives, giving
+          preference to the absolutely mandatory constraints specified by
+          `Creslengths'.  These features are of particular interest for
+          video compression.
+    3) New/improved file format support: broadcast streams, video, JPX, jp2info
+       -- Added support for the file-format aspects of the broadcast
+          specification found in Annex-M of IS15444-1/AMD3.  Previous versions
+          of Kakadu supported only the codestream profiles for broadcast, but
+          not the elementary broadcast stream file format.  Broadcast streams
+          have been added as one of the file types supported by the
+          "kdu_v_compress" and "kdu_v_expand' demo apps, which now support
+          some additional command-line arguments.
+       -- Improved support for interlaced video in the interfaces offered for
+          Motion JPEG2000 and Elementary broadcast streams, and extended the
+          "kdu_v_compress" and "kdu_v_expand" demo apps to support interlaced
+          video, as well as mixed inerlaced/progressive content.
+       -- Added a new generic facility for generating names and textual
+          representations for JP2 boxes, as used in JP2, JPX and MJ2 files,
+          as well as elementary broadcast streams.
+       -- Added a new demo app, "kdu_jp2info", that prints XML-compatible
+          descriptions for any JP2-family file or raw codestream, with options
+          to control the level of detail printed.  See the usual
+          "Usage_Examples.txt" file for examples.
+       -- Added new methods `jp2_input_box::open_as' and `jp2_input_box::fork'
+          that can simplify or render more efficient certain types of
+          interaction with JP2-family files.
+    4) Improvements to rendering by `kdu_region_compositor'
+       -- Improved the way in which `kdu_region_compositor' scales and places
+          compositing layers on the compositing surface.  Specifically, the
+          underlying rational scaling factors now approximate the ideal
+          scaling factors to sufficient accuracy to ensure placement and
+          sizing of image layers correctly, even for compositions involving
+          a massive number of image layers composited onto huge surfaces.
+    5) JPIP client/server improvements and fixes
+       -- Slightly improved the way in which complex JPIP `context' requests
+          are converted into individual window regions and resolutions within
+          each codestream associated with the `context', so as to avoid
+          possible accumulation of sizing or positioning errors with large
+          compositing surfaces formed from many smaller compositing layers.
+       -- Corrected an oversight in the support of JPX composition instructions
+          with orientation/flipping information.  Support for this feature
+          was introduced with KDU-7.0, but was accidentally omitted from the
+          `kdu_clientx' object that is used by Kakadu's JPIP client to
+          inform JPIP servers of the relevant existing cached content (used
+          for stateless requests and/or when a local cache file is maintained
+          by the client and re-used in subsequent browsing sessions).
+       -- Fixed some extremely subtle bugs in Kakadu's client and server
+          components, that can only be excited in usual circumstances.
+    6) Implementation of new JPEG2000 features
+       -- This release contains a preliminary implementation of the new
+          "fast mode" that is the subject of the very recent Ammendment 4
+          to IS15444-2 (JPEG2000 Part 2).  Experience suggests that this
+          mode can improve compression and decompression throughput of
+          Kakadu by approximately 30%, depending on the target compressed
+          bit-rate.
+    7) Other changes and fixes
+       -- Fixed some minor problems with the build environments.  Specifically
+          Solaris irregularities caused some issues for KDU-7.0, and there
+          was a minor difficulty encountered while building with special
+          compilation options like `KDU_NO_THREADS' and `KDU_NO_SSSE3',
+          as well as OSX builds on quite old versions of GCC.
+       -- Fixed a problem with the interaction between Java interfaces and
+          Kakadu's multi-threading sub-system that could previously have
+          resulted in thread leaks if Kakadu threads were constructed and
+          destructed repetitively from Java and used to invoke callback
+          functions implemented in Java (i.e. virtual functions of native
+          interface classes that are overridden in Java derived versions
+          of the class).
+       -- Fixed a number of API documentation errors.
+
+    NEW in KDU-7.0
+    --------------
+    This release contains a great number of major advances over previous
+    versions of Kakadu.  Most notable of all is a completely new multi-threaded
+    processing sub-system which can achieve much higher CPU utilization for
+    machines with many CPU cores and/or hyperthreading.  In a number of
+    important applications, processing throughput with this new version of
+    Kakadu can be as much as twice that of previous versions.  There are
+    a huge number of other advances as well.  Here is a brief overview of
+    what is new or improved in this version:
+    1) Completely new multi-threaded processing subsystem that preserves
+       backward compatibility in almost all respects from an external
+       point of view, but is internally completely different from that in
+       previous versions.  The new multi-threaded sub-system provides
+       new ways for applications to add there own multi-threaded processing
+       elements, sharing thread resources as efficiently as possible.  Some
+       of these are demonstrated by the rewritten "kdu_v_compress" and
+       "kdu_v_expand" demo apps.
+    2) New SIMD processing enhancements, including much more extensive use of
+       SSSE3, as well as AVX instruction sets.
+    3) Major changes to the JPX file management sub-system, focussing on
+       better support for structured metadata.  The new implementation
+       supports and uses the new "group" box introduced with IS15444-2/AMD3,
+       but still supports free/asoc combinations (as in previous versions of
+       Kakadu) for non-semantic structuring and can use these in place of
+       group boxes if requested.  These non-semantic structuring elements
+       are now completely hidden from the application, which sees only the
+       semantic metadata structure, while the non-semantic structuring
+       elements work behind the scenes to ensure that metadata can be
+       efficient communicated on demand via JPIP, in interactive browsing
+       applications.  The new JPX sub-system now fully supports the use and
+       semantic interpretation of region-of-interest and number-list boxes
+       at any point in the metadata hierarchy.  This, together with the
+       interpretation of cross-reference boxes as semantic links, allows
+       for extremely rich metadata structures to be constructed and
+       communicated interactively, coupled tightly to the interactive
+       image browsing experience.
+    4) Kakadu's client and server elements (the `kdu_client'/`kdu_cache'
+       interfaces and the "kdu_server" application) have also undergone
+       major changes.  New JPIP request fields from IS15444-0/AMD5 are
+       supported and the client and server now support the newly defined
+       UDP transport protocol for JPIP, although this should be regarded as
+       still experimental for the moment.  The most major change, however, is
+       a complete overhaul of the underlying cache model implementation
+       which is much more efficient than before.  Cache model manipulation
+       processing is now deferred (wherever possible) to the point where the
+       relevant cache model entries actually need to be accessed to serve a
+       request; stateless request handling is much more efficient; cache
+       model holes can now be stored; and the average amount of memory
+       required to maintain the cache model is actually reduced (at least
+       on 64-bit platforms).  The `kdu_client' interface now offers a special
+       Out-Of-Band (OOB) request feature that allows small high priority
+       requests (typically for metadata) to be routed around larger requests
+       for which the server may be streaming data (typically compressed
+       imagery).  This allows for much more responsive browsing of imagery
+       and metadata and it is also used by the new `kdu_region_animator'
+       object -- see below.
+    5) Kakadu's high level `kdu_region_compositor' and `kdu_region_decompessor'
+       objects have also been enhanced in a number of important ways.  The
+       `kdu_region_compositor' object can now synthesize sophisticated JPIP
+       metadata requests to simplify the implementation of applications that
+       need to work intelligently with content that is located on a remote
+       server, while interactively browsing imagery, animations, and so forth.
+       Several efficiency improvements have been made to the internal
+       rendering machinery and some minor adjustments have been made to
+       facilitate interaction with the new `kdu_region_animator' object (see
+       below).
+    6) A new `kdu_region_animator' object has been added to the special
+       support objects found in the "apps/support" director.  This object
+       is designed to work with `kdu_region_compositor' in rendering
+       applications that also need animation.  In addition to managing the
+       scheduling of frames for regular video sources (MJ2 tracks and JPX
+       animations), the new animator object is capable of synthesizing novel
+       animations from metadata within a JPX file.  For example, a sequence
+       of metadata nodes that contain or link to ROI description boxes can
+       be interpreted as an animation that pans smoothly between the
+       various regions of interest within their respective compositing layers
+       or within and between the fully composited frames to which they belong.
+       The animator provides dynamic panning features which work together with
+       the `kdu-region_compositor' and a screen update engine (provided by
+       the application) to synthesize smooth pans, with configurable speed
+       and acceleration parameters, while keeping memory consumption very low
+       (a constant feature in Kakadu).  Finally, the animator is designed to
+       work with JPIP, synthesizing appropriate JPIP requests for both
+       metadata and imagery.  The animator strives to implement the dream
+       of delay-free interactive rendering, by pre-requesting important
+       structural elements using the special OOB request queue now offered by
+       the `kdu_client' object, while relying heavily on the fact that
+       JPEG2000 content can generally be rendered from a cache with almost
+       any arbitrary amount of content, being asynchronously populated by
+       the client as and when it receives data.
+    7) The "kdu_show" application has been greatly enhanced to use and
+       demonstrate almost all the JPX, JPIP and Animation features described
+       above.  For example, dynamic metadata-driven animations can be
+       launched simply by holding the shift key down while double-clicking
+       on a metadata item of interest in the catalog sidebar -- this also works
+       during interactive browsing with JPIP.  Real-time rendering for video
+       playback and animation is now implemented through a derived version of
+       the `kdu_region_compositor' class that allows much better decoupling
+       between the display thread and the main application thread.  This
+       implementation structure provides an excellent template for other
+       interactive video browsing applications based on Kakadu.  The metdata
+       catalog sidebar has been further enhanced, particularly to support
+       and reveal the appearance of region- or image-specific metadata
+       elements at any point in the metadata hierarchy.  Links and link editing
+       are also enhanced somewhat.  The MAC and Windows versions of "kdu_show"
+       now provide identical funcionality, including a sophisticated
+       metadata shape editor for regions of interest.
+    9) Lots of other more minor enhancements and fixes to all known bugs.
+       For example, multi-threaded processing has now been introduced to
+       more demo code fragments in "kdu_render" and also to the Java and
+       C# demo applications, "KduRender2".  Memory leaks that could occur
+       in the core parameter parsing system (if codestream errors were
+       detected and the error handing machinery used exception processing)
+       have been removed.  A source of possible race conditions in
+       multi-threaded processing on 32-bit operating systems has also
+       been eliminated.  The "kdu_compress" and "kdu_expand" demo apps
+       now provide better handling for resolution tags in TIFF files,
+       preserving the information in a more appropriate manner within
+       JP2/JPX files.  Many of the demo apps have additional command-line
+       options, allowing you to experiment with advanced features.
+
+    NEW in v6.4 / v6.4.1
+    --------------------
+    The new features and improvements in this release fall into the following
+    major categories:
+    1) Major changes to Kakadu's server technology.  The main server
+       application provides full support for IPv6, while the core `kdu_serve'
+       object has been completely re-implemented from scratch so as to
+       properly support JPIP service preferences, arbitrarily large windows of
+       interest, better memory utilization, especially for multi-codestream
+       sources, and more efficient handling of stateless requests.  The new
+       implementation provides native support at the deepest level for
+       multiple JPIP channels, whereas previously multiple channels were
+       implemented by time-sharing in the server, on a fundamentally
+       single channel `kdu_serve' component.  Cache model manipulation
+       statements are now handled in a more modular manner, allowing them
+       to be processed at more efficient points in time.  There is much more
+       to say about these changes, for which licensed users are referred to
+       the "Updates.txt" document which ships with each licensed copy of
+       Kakadu.
+    2) Kakadu now supports arbitrarily shaped region of interest metadata in
+       JPX files.  This is a new features which is being standardized as part
+       of Ammendment 3 to IS15444-2.  Previously, regions of interest were
+       limited to horizontally/vertically aligned rectangles and ellipses.
+       Now, arbitrarily oriented ellipses and arbitrary quadrilaterals are
+       supported, along with all unions of these shapes -- e.g., polygons,
+       polygons with rounded corners, etc.  Along with this, the metadata
+       overlay machinery provided by `kdu_region_compositor' has been
+       greatly enhanced, and the `jpx_roi' object's interface has been
+       massively extended to support geometric manipulation and analysis
+       operations.  In addition to this, Kakadu now provides a very powerful
+       and completely platform independent tool to edit and discover high
+       level attributes of regions of interest.  This is the `jpx_roi_editor'
+       object.  It can be used to build a very powerful interactive shape
+       editor, with the addition of an almost negligible amount of
+       GUI-dependent code to detect mouse clicks and the like -- for a
+       demonstration, see the "kdu_macshow" application which provides a
+       capable and intuitive shape editor.
+    3) A range of improvements to the `kdu_region_compositor' API,
+       including much more sophisticated, customizable and efficient
+       metadata overlay rendering, and more comprehensive support for
+       rendering of complex JPX files and construction of composited content
+       from other sources.  Arbitrary image pieces can now be composited with
+       application control over cropping, rotation, mirroring, scaling, etc.
+    4) The core system has long supported automatic transposition and
+       flipping of image content as part of the compression or decompression
+       processing pipeline (for efficient geometric manipulation).  This new
+       release improves upon the way in which this is done, so as to ensure
+       that all geometric manipulations are truly lossless, right down to the
+       bit level.  This means, for example, that a rotated view of a
+       losslessly compressed medical image (generated using Kakadu's
+       super-efficient appearance transforms) is indeed 100% lossless,
+       whereas only the original orientation was rendered truly losslessly
+       in previous versions of Kakadu.
+    5) Parsing, generation and interpretation of all HTTP headers and URL's is
+       now performed in a manner which correctly recognizes, extracts
+       and generates both IPv4 and IPv6 addresses, following the conventions
+       described in RFC3986.
+    6) Improved the interpolation code in `kdu_region_decompressor' which is
+       responsible for scaling imagery by arbitrarily selectted amounts.  The
+       new implementation provides more customization and much greater
+       efficiency for large scaling factors.
+    7) Added support for the Broadcast profiles which are the subject of
+       Ammendment 4 to IS15444-1.  During codestream generation, the
+       profile requirements are checked and informative messages are provided
+       to help you set things up correctly for broadcast.
+    8) Modified the way in which Java Native Interfaces are generated by
+       "kdu_hyperdoc" so as to include checks for null object references
+       being passed as arguments to functions whose native counterpart
+       is a by-reference argument.  This catches a potentially
+       common programming error at run-time and generate appropriate Java
+       exceptions rather than allowing a segmentation fault to occur.
+
+    Of course, there is a great deal more to this new release than the above
+    brief summary can outline.  More comprehensive details of the changes may
+    be found in the usual "Updates.txt" file.
+
+
+    NEW in v6.3
+    -----------
+    The new features and improvements in this release fall into three
+    categories:
+    1) A major overhaul of the `kdu_region_decompressor' and
+       `kdu_region_compositor' high level rendering objects, with the
+       following important innovations:
+       a) All high level API's in Kakadu now support everything from fast
+          low precision processing through to full floating-point precision
+          processing.  This has always been true of the core system, but is
+          now true even for objects like `kdu_region_compositor' which
+          perform sophisticated rescaling, re-orientation, compositing and
+          animation of multiple images from multiple codestreams, with
+          potentially very different internal properties.
+       b) These objects now implement completely arbitrary scaling (in each
+          dimension) of the underlying imagery, selecting the most appropriate
+          original resolution to decompress and using disciplined signal
+          processing techniques to scale to any target resolution whatsoever,
+          over any region of the original image.  Previously, only bilinear
+          upscaling was implemented.  Now you can even render an image which
+          only one native compressed resolution at any arbitrary size without
+          having to worry about the mechanics.  These features are demonstrated
+          in a simple way by adding an arbitrary "-scale" argument to all six
+          demonstration code fragments inside the "kdu_render" demo app.  More
+          significantly, "kdu_winshow" and "kdu_macshow" take advantage of the
+          features to produce much higher quality compositions when images
+          with non-power-of-2-related resolutions are composed on a single
+          surface.  Moreover, these tools now robustly scale to any resolution
+          at all, providing all the appropriate safe guards as the scaled
+          resolution approaches ridiculous values (ridiculously large or
+          ridiculously small).  Try zooming or out massively in one of these
+          viewers if you like, while viewing the image size in the status bar
+          (you may have to toggle the status mode using ^t or Cmd-t), or try
+          zooming by small amounts by holding the shift key down together
+          with the zoom accelerators.
+       c) The processing of metadata overlay imagery in `kdu_region_compositor'
+          has been completely re-implemented so as to provide much higher
+          throughput when there is a massive amount of metadata with regions
+          of interest to be highlighted.  The new implementation provides
+          disciplined sequencing of the overlay painting process so that there
+          is little or no risk of large overlay regions concealing smaller ones
+          and the appearance of overlay data does not depend on the order in
+          which metadata becomes available in an interactive client-server
+          session.  Dynamic adjustment of the overlay blending
+          strength is now provided in a very efficient and almost transparent
+          manner, so you can animate the overlay content in a display without
+          much processing overhead -- this is what "kdu_winshow" and
+          "kdu_macshow" now do by default, but you can (as always) toggle the
+          overlay mode to a non-animated one.  Finally, overlay painting now
+          comes with a much more flexible customization interface so that you
+          can generate lots of interesting effects without having to
+          implement your own `kdu_region_compositor::paint_overlay' override.
+       d) The `kdu_region_compositor' object now offers a function which
+          can synthesize the imagery aspects of a JPIP request to match
+          its current configuration, over a defined region of interest on
+          the rendering surface.  This is very important, since correct
+          synthesis of JPIP requests for complex compositions can be a
+          very challenging matter, especially since JPIP's interpretation
+          of resolution does not generally correspond to the resolution
+          which will produce the highest quality rendition at a given
+          (arbitrary) scale -- it is based on canvas coordinates, which may
+          involve sampling factors that are not related to true resolution
+          (in the signal processing sense).
+    2) There is a more robust and uniform approach to exception handling
+       throughout Kakadu, involving a special exception type `kdu_exception'
+       and preservation of exception codes across Java interfaces via
+       the "kdu_jni/KduException" class.  Everything is backward compatible,
+       but there are some new guidelines for the throwing of exceptions
+       within error handlers, which implementors are encouraged to review --
+       the Kakadu demo applications adhere to these guidelines.  As part of
+       the overhaul of exception handling within Kakadu, close attention has
+       been given to memory allocation, ensuring that appropriate exceptions
+       (std::bad_alloc in C++) will be thrown wherever memory allocation fails,
+       ensuring that such exceptions are passed across thread boundaries during
+       multi-threaded processing, and ensuring that memory allocation failure
+       should not leave the system in a state where resources cannot be
+       properly cleaned up after catching such an exception.
+    3) Enhancements to the various demo applications:
+       a) kdu_winshow and kdu_macshow have now completed there convergence,
+          offering identical features in a uniform manner.  Improvements
+          have been made to: the rendering of region-of-interest overlays;
+          the transporting of focus boxes across frame changes; the
+          preservation of state during window duplication actions; presentation
+          of and navigation within the metadata catalog side bar; and quite
+          a few other things.  The new arbitrary scaling features of the
+          core workhorse `kdu_region_compositor' are now put to good use in
+          each of these applications to produce high quality imagery under
+          all circumstances.
+       b) kdu_merge offers the capability to easily merge a large number of
+          codestreams (or other JPEG2000 compressed sources) into a single
+          JPX/MJ2 file.
+       c) kdu_merge now offers a more powerful "-album" mode which creates
+          multiple up-front splash sheets and adds a lot of metadata which
+          can serve as a template for subsequent editing of the metadata in
+          "kdu_winshow" or "kdu_macshow".
+       d) kdu_render now offers a "-scale" option and an additional demo
+          fragment to illustrate high precsision processing with
+          `kdu_region_compsositor'.
+       e) kdu_server now properly supports case-sensitive serving of files,
+          using a command-line switch which can be applied to change the
+          default policy under Windows or Unix operating systems.
+       f) kdu_compress and kdu_expand now offer extended "-fprec" options
+          for forcing the precision associated with the imagery which is
+          read (kdu_compress) or written (kdu_expand).  In particular, during
+          compression, you can force the input image samples to be treated
+          as though they had a different precision (larger or smaller than
+          the one recorded in the input file) and you can specify that the
+          original samples should be aligned at either the LSB position or
+          the MSB position within the synthesized representation.  Similar
+          features are available during compression.  Together, these
+          capabilities allow you to do all kinds of useful manipulations to
+          interpret or generate images in a manner that matches various
+          exotic applications.
+    Finally, this version comes with quite a few bug fixes for the core system,
+    as well as higher level API's and demo applications.  There are some very
+    important bug fixes for "kdu_server", for example.  There are also some
+    simple but critical bug fixes to the TIFF file I/O implementation used
+    by the "kdu_compress" and "kdu_expand" demo apps.
+
+    NEW in v6.2
+    -----------
+    This release provides three very substantial improvements:
+    1) A complete overhaul of the Kakadu client/server capabilities for
+       JPIP.  Firstly, the new implementation is platform neutral, compiling
+       equally well on Windows and Unix-based platforms (like Linux and
+       Mac OSX).  Secondly, the new implementation offers multiple JPIP
+       channels within each session (server side) and exploits multiple
+       JPIP channels whre available (client side).  If multiple channels
+       are not available from the server, the client synthesizes them on
+       behalf of applications, so that multiple concurrent request queues
+       (multiple windows of interest into the same resource) can be offered
+       transparently to client applications.  Thirdly, the new implementation
+       fixes a number of minor matters in which earlier releases were
+       not completely compliant with the JPIP standard.
+    2) A lot more support for JPX metadata, including cross-reference boxes
+       which Kakadu exploits to offer three types of semantic links between
+       elements of the metadata hierarchy.  Links of this form are extremely
+       useful for annotating images (or videos) and improving the
+       remote browsing experience -- a user can navigate through a large
+       source using any combination of image-based and metadata-based
+       navigation commands, which Kakadu's demonstration viewers
+       (kdu_winshow and kdu_macshow) convert into appropriate JPIP queries.
+       The client and server now offer correct, and very extensive support
+       for the generation of and response to metadata queries so as to make
+       all this work.
+    3) The earlier "kdu_show" (windows) and "kdu_macshow" (OSX) applications
+       have both been extended and almost converged to two new applications:
+       "kdu_winshow" and "kdu_macshow" which offer almost identical
+       funcionality (though the MAC viewer is better, especially for
+       foreign language scripts -- no Windows Vista these are mostly
+       supported, but not on XP).  These tools both offer a JPX metadata
+       catalog sidebar for efficient navigation within richly annotated
+       imagery.  The catalog and image views are tied tightly together
+       and both interact with a powerful metadata editor that you can
+       use to create rich content locally -- or edit an image which has
+       been downloaded (perhaps partially) via JPIP.  The viewing tools
+       both offer multiple top-level windows, each of which can be
+       directed to the same source or a different source, locally or
+       remotely.  When the same source is accessed remotely (via JPIP)
+       from multiple windows, you get a shared cache and multiple concurrent
+       request queues into the remote JPIP session, which can be used to
+       task queries for different image regions, resolutions, frames, etc.
+       while sharing the return data amongst all windows.
+
+    In addition to the above major changes, version 6.2 comes with a
+    host of minor bug fixes (many bugs were not possible to test out
+    previously, until the advent of our multi-window client viewers with
+    metadata-based navigation).  There are some nice enhancements to
+    the "kdu_merge" tool to support merging of raw codestreams and
+    importing of metadata from one source into another.  There is full
+    support for the BigTIFF standard in "kdu_compress" and "kdu_expand"
+    and the "kdu_compress" application can also crop its source images
+    on the fly so as to simplify the implementation of fragmented
+    compression of huge images.
+
+    NEW in v6.1
+    -----------
+    This release provides a number of important subtle bug fixes for the
+    core Kakadu system, improved support for the generation of Digital
+    Cinema content, improved support for JPX metadata, and a number of
+    enhancements to the demonstration applications.  It also provides a
+    complete set of XCODE development projects for MAC developers and a
+    new full featured viewer for the MAC.  More specifically, the principle
+    enhancements are as follows:
+      1) Complete set of XCODE build environments for the MAC, to
+         complement the existing Makefiles and Microsoft Visual Studio build
+         environments.
+      2) Dramatically improved the metadata editing capabilities of "kdu_show",
+         while adding new options to save edited files and maintain as much
+         metadata as possible in JP2 files (JPX is, of course, the preferred
+         format to save images with rich metadata).
+      3) Introduced a new viewing utility, "kdu_macshow", for the MAC (runs
+         under OSX 10.5 on G4, G5 and Intel processors; should also run under
+         OSX 10.4).  This utility is more elegant than its long standing
+         Windows cousin, "kdu_show".  It contains all the same features as
+         "kdu_show" (with the exception of JPIP support, which will be enabled
+         in v6.2), but adds automatic metadata cataloging and navigating
+         features for JPX sources, manages multiple open windows and allows
+         for synchronized commands to be delivered to multiple windows (e.g.,
+         start playing video in all windows at once).  It uses mostly the
+         same accelerator keys as "kdu_show".
+      4) Improved JPX metadata management considerably:
+         -- New member functions to `jpx_metanode' make metadata editing
+            more convenient.
+         -- `jpx_meta_manager' now keeps track of original file locations
+            (or copy source locations), providing applications with the
+            ability to efficiently locate metanodes based on the original
+            box locations.
+         -- Modified metadata reading code so that errors encountered in
+            non-essential metadata can be non-fatal.
+         -- Added a service to efficiently and conveniently identify the
+            set of metadata nodes which have been changed, deleted, added, or
+            recently parsed into a `jpx_source' (e.g., because they became
+            available in a dynamic cache, during JPIP browsing).  The
+            application can now efficiently scan all such newly available
+            nodes.
+      5) Modified the "kdu_compress" and "kdu_expand" applications to allow
+         images with a given declared sample data precision to be read or
+         saved as though they had a different sample data precision.  One
+         reason for doing this is to overcome a weakness in the support
+         offered by some third party TIFF reading/writing applications, in
+         not properly supporting the packing/unpacking of sample values
+         with unusual precisions.
+      6) Provided a new core system feature to keep track of the number of
+         compressed bytes in each quality layer, in each tile, image
+         component and resolution.  This can help applications to make
+         intelligent choices regarding the number of quality layers they
+         might choose to decode, where speed is particularly important.  This
+         feature is partly demonstrated by the new "-stats" option to
+         "kdu_expand".
+      7) Augmented `kdu_codestream::flush' with the ability to impose
+         constraints not only on the overall compressed size of each
+         quality layer, but also on the size of the quality layer at each
+         resolution and/or each leading subset of image components.  This
+         is useful primarily for ensuring the generation of legal codestreams
+         for Digital Cinema applications.
+      8) Significantly improved robustness of the core system to illegal
+         or highly unusual conditions which might require the allocation
+         of massive amounts of memory.  The core system should be able to
+         correctly clean itself up (assuming the application calls
+         `kdu_codestream::destroy') even after throwing an exception from
+         a call to `new' which exceeds the available memory.
+      9) Fixed some problems associated with empty tile-part headers
+         generated using the ORGgen_tlm parameter attribute.
+      10) Fixed a bug in `kdu_codestream::trim_compressed_data' which has
+         been in the core system since Part 2 arbitrary decomposition
+         styles were introduced in version 5, but was only detected in
+         version 6.0.  This bug could have potentially caused a memory
+         access violation, but apparently hardly ever did so.
+      11) Fixed a number of other long dormant, subtle bugs in the core system.
+      12) Fixed a bug in `kdu_region_compositor', which could have caused it to
+         generate a memory fault under some exotic conditions.
+      13) Fixed a bug in Kakadu's JPIP client, related to the treatment
+         of HTTP/1.1 "100 Continue" responses from proxies.
+      14) Incorporated temporary fixes provided by a third party into the
+         original DSTO Unix/Linux port of the "kdu_server" utility.
+
+    NEW in v6.0
+    -----------
+    This release focuses on core processing speed, as well as fixes for a
+    significant number of mostly very subtle bugs; there are also a couple of
+    important new demonstration applications.  With regard to speed,
+    version 6.0 introduces:
+      1) fast SIMD DWT and colour transformation code for the
+         32-bit precision sample processing path, which largely mirrors that
+         already available in the 16-bit processing path;
+      2) several efficiency improvements in the management of compressed data
+         by the core codestream management machinery, particularly for sources
+         which can be mapped through memory, advertising the new
+         `KDU_SOURCE_CAP_IN_MEMORY' capability;
+      3) various improvements to tiled image processing, including a new
+         implementation of the `kdu_compressed_source' workhorse object,
+         which supports the simultaneous processing of multiple tiles where
+         this would be beneficial;
+      4) additional methods to control the priority and CPU bindings
+         for threads created by Kakadu's multi-threaded processing
+         environment; and
+      5) added a new codestream management feature which allows
+         decompressed image quality to be traded for computational speed
+         by stripping away final coding passes from selected code-blocks;
+         this has a similar effect to discarding quality layers, but works
+         even when the original codestream was created with only one quality
+         layer.
+
+    A brand new Kakadu "speed-pack" offering is also now available under
+    a separate licensing agreement.  It provides an entirely new
+    implementation strategy for the core block decoding algorithm, as well
+    as a new implementation structure for the wavelet transform; these
+    features allow licensees of the speed-pack version to provide end-to-end
+    speedups of 40% to 50% in many decompression applications, relative to
+    earlier versions of Kakadu, with no loss in quality.  For compression
+    applications, the speed-pack affords even larger potential improvements,
+    with typical speedups of 45% to 65%, depending on the compressed
+    bit-rate.  Real-time software rendering of digital cinema content is
+    well and truly within reach on high end computing platforms.  Moreover,
+    high quality (but less than perfect) renderings of digital cinema content
+    are now possible on less powerful machines, with the aid of the bit-stream
+    truncation option mentioned under item (5) above.  To license the
+    Kakadu speed-pack, you must first have a commercial license to Kakadu
+    v6.0 (or higher).  For more information on licensing, consult the
+    Kakadu web-page at http://www.kakadusoftware.com.
+
+    With regard to new applications, version 6.0 offers:
+      1) "kdu_vex_fast", whose purpose is to demonstrate the fastest
+         possible means of decompressing and rendering JPEG2000 compressed
+         video content for real-time applications, including digital cinema
+         playback; the Windows version of this application also includes the
+         option for tear-free rendering of the content directly to a window
+         or in full-screen mode via DirectX9.
+      2) The "kdu_server" application (Kakadu's JPIP server application) can
+         now be compiled on Linux/Solaris and MAC operating systems.  Moreover,
+         you can also build the `kdu_client' object (Kakadu's JPIP client) on
+         these platforms, in addition to Win32 and Win64.
+
+    With regard to bug fixes, a number of the more significant ones are
+    listed below (for more information see the usual "Updates.txt" file in
+    your Kakadu distribution).
+      1) Fixed two non-compliance problems with the way Kakadu handles
+         Part-2 multi-component transforms.  The new release generates
+         compliant codestreams but can also transparently ingest and render
+         the non-compliant codestreams which might have been created by
+         previous versions of Kakadu -- more details are provided in
+         "Updates.txt".
+      2) Fixed an obscure bug with the way Kakadu handles non-symmetric
+         wavelet kernels (available only in Part-2 codestreams) for certain
+         boundary conditions.
+      3) Fixed a couple of obscure bugs in the tile processing machinery, one
+         of which was responsible for the occasionally reported
+         "Illegal inclusion tag tree encountered ..." message observed when
+         serving huge images via JPIP.
+      4) Fixed some very subtle bugs in Kakadu's multi-threaded processing
+         environment, which could have manifested themselves on platforms
+         with many CPU's.
+      5) Fixed a non-compliance issue in the way Kakadu's JPIP client
+         communicates with HTTP proxies.
+      6) Modified the way in which the "kdu_hyperdoc" utility builds Java
+         bindings so as to ensure absolute robustness against race
+         conditions, as classes are loaded.
+      7) Fixed a bug in the way the "kdu_compress" demo application handles
+         tiled TIFF images with compressed tile data.
+      8) Fixed some irregularities in the Linux and MAC makefiles, so as
+         to get reliable builds, with the maximum set of compliant speedup
+         options, on all 32- and 64-bit X86-based machines.  Previous
+         irregularities in Java linking, for example, should now be
+         resolved.
+
+    NEW in v5.2
+    -----------
+    This is mostly a tidy-up version, cleaning up a few loose ends
+    left over from the last major upgrade.  However, there are a few
+    significant new features, as follows:
+    1) The "kdu_hyperdoc" tool now builds a richer set of Java native
+       interface bindings and now also builds a corresponding set of
+       C# and Visual Basic language bindings.  There are now two Java
+       example apps and two corresponding C# example apps.  Moreover,
+       "kdu_hyperdoc" can be instructed (via the new "-bind") argument
+       to limit its bindings to specific classes, global functions or
+       even class member functions, for minimally sized interfaces.
+    2) There is new set of MMX/SSE/SSE2 implementations which use processor
+       intrinsics.  These can be compiled from both GCC and .NET and can
+       target both 32-bit and 64-bit builds on both platforms.  The older
+       hand optimized versions of the SIMD processor speedups for X86
+       platforms and other platforms (Sparc and PowerPC) still exist
+       and are used where appropriate by the compilation logic.  However,
+       the presence of the new more-generic implementations allows more
+       speedups across all platforms.  This also overcomes a previous
+       limitation where there were no speedups available for Win64
+       builds under .NET, even though speedups were available for 64-bit
+       Linux builds.  The "Compilation_Instructions.txt" file has been
+       updated to provide a more accessible and complete description of
+       the various build environments and compilation options.
+    3) Support for TIFF file reading and writing by the demo apps,
+       "kdu_compress" and "kdu_expand" has been enhanced to include the
+       following: 1) Reading of just about any TIFF format, including tiled
+       and planar organizations, arbitrary bit-depths (including floating
+       point samples); 2) Reading and appropriate usage of colour space
+       and alpha component information embedded in TIFF files (including
+       CMYK spaces); 3) More comprehensive support for writing of TIFF
+       colour spaces (including CMYK) and alpha channels.
+    4) The `kdu_region_decompressor' and `kdu_region_compositor' objects,
+       which are used for most rendering applications, have been upgraded
+       to properly handle pre-multiplied opacity (associated alpha), where
+       previously only the more generic opacity (unassociated alpha) was
+       handled.  This means that practically any reasonable JPX composition
+       or animation will be correctly rendered.
+
+    NEW in v5.1
+    -----------
+    This is most likely the last upgrade which will need to make any
+    significant changes to the Kakadu core system (all changes are, of
+    course, backward compatible).
+    
+    1) By far the most important new feature in v5.1 is the provision of
+       extensive support for multi-threading, so as to fully leverage the
+       processing resources available on platforms with multiple CPU's,
+       multi-core CPU's and/or hyperthreading CPU's.  All of the high level
+       sample processing objects (`kdu_multi_analysis', `kdu_multi_synthesis',
+       `kdu_stripe_compressor', `kdu_stripe_decompressor',
+       `kdu_region_decompressor' and `kdu_region_compositor') provide simple
+       mechanisms to include the processing resources offered by a
+       `kdu_thread_env' object, which you are free to create and augment
+       with working threads, using `kdu_thread_env::add_thread'.  Kakadu
+       also provides you with assistance in determining the optimum number
+       of threads to create.  For many applications, upgrading from the
+       original single-threaded processing model to multi-threaded
+       processing requires only a few lines of code.  This is demonstrated
+       by most of the demo applications; most of them take a `-num_threads'
+       argument and some provide additional control over double buffering
+       for parallel processing of tile-components, in addition to
+       parallel processing of code-blocks within a tile-component.  You
+       can enable multi-threaded processing in "kdu_show" via the "Modes"
+       menu item -- this can significantly speedup video playback, for
+       example, even on a single processor platform if hyperthreading is
+       available.
+
+    2) Added new `push_stripe' and `pull_stripe' interface functions to the
+       `kdu_stripe_compressor' and `kdu_stripe_decompressor' objects,
+       respectively, to support 32-bit integer and floating point image
+       sample values, in addition to the existing 8- and 16-bit precision
+       interfaces.  These additional interfaces ensure that the high level
+       stripe-oriented objects support all of the data precisions that are
+       supported by the underlying core Kakadu system.
+
+    3) Added the Digital Cinema profiles (CINEMA2K and CINEMA4K) to the list
+       of profiles recognized in the codestream SIZ marker segment.  These
+       profiles were added about a year ago as an ammendment to Part 1 of
+       the JPEG2000 standard.
+
+    4) Added significant support for TIFF and GeoTIFF image I/O to
+       "kdu_compress" and "kdu_expand".  Even though image I/O is not really
+       part of the scope of Kakadu, it is required for demonstration
+       purposes and lack of comprehensive TIFF support has been a
+       source of concern for some new users.  This has been
+       complicated by the fact that GeoJP2 files include a JP2 box
+       which is really an encapsulated TIFF file.  To solve both
+       problems in one go, this new release of Kakadu comes with a
+       simple yet general native TIFF parser/creater, which is not
+       based on any external libraries and integrates well with the
+       other abstract I/O services endemic to Kakadu.
+          As a result, TIFF files can now be read and written by the
+       "kdu_compress" and "kdu_exand" demo applications without the
+       need to link against LIBTIFF (as before).  GeoTIFF tags are
+       also extracted by "kdu_compress" and used to create a GeoJP2
+       box if appropriate.  GeoJP2 boxes may be unpacked (if required)
+       and/or written back to GeoTIFF files by "kdu_expand".  The
+       new `kdu_tiffdir' object may be used to create/unpack TIFF
+       directories in any file or embedded within any JP2 box.  This
+       is useful both for GeoTIFF applications and also for handling
+       JP2-family files which might contain embedded raw imagery.
+
+    5) Quite a number of minor bugs have been fixed (all reported
+       bugs, to the best of my knowledge).  The most significant bug
+       fix is probably a minor error in the Altivec speedup code for
+       PowerPC platforms, which sometimes caused erroneous decoding of
+       the first few columns when decompressing a restricted region
+       inside the image.  For a more comprehensive list of bug fixes
+       and added features, see the usual "Updates.txt" document which
+       ships with Kakadu licenses.
+
+    NEW in v5.0
+    -----------
+    This is a very major upgrade.  The most significant changes relate to
+    support for features of Part-2 of the JPEG2000 standard.  At the same
+    time, considerable effort has been devoted to improving the efficiency
+    and memory utilization in critical portions of the core system.  This
+    new version contains something for just about every user of Kakadu,
+    from significantly more efficient video rendering (through
+    `kdu_region_compositor') to efficient interactive inspection of
+    medical volumes compressed using multi-component transforms.  A variety
+    of minor bugs and quirks have also been fixed.  Here is a brief list of
+    the main new features:
+
+    0) Four new dead-easy demo code fragments are implemented inside the
+       "kdu_render" demo app, to get you up and running as quickly as
+       possible, or give you one-line solutions to decompression/rendering
+       problems for any raw codestream, JP2 file, JPX file, MJ2 frame or
+       JPX animation frame.  These serve as a good entry point to the
+       much richer set of features offered by Kakadu rendering tools.
+    1) Fully supports Part-2 arbitrary transform kernels, allowing user
+       defined DWT kernels.
+    2) Fully supports Part-2 arbitrary decomposition styles, including
+       wavelet packet decomposition structures, and unbalanced sub-sampling
+       structures in which successive resolution levels might have identical
+       horizontal dimensions or identical vertical dimensions.
+    3) Fully supports Part-2 multi-component transforms, including arbitrary
+       combinations of matrix-based decorrelation transforms, dependency
+       transforms and multi-component DWT transforms, with arbitrary
+       transform kernels.  Both reversible and irreversible transform
+       operators are fully supported.  Apart from constraints which were
+       most likely accidentally omitted from the standard, Kakadu imposes no
+       unreasonable constraints on the full generality of multi-component
+       transform structures supported by Part 2.  However, the possibilities
+       are so rich that it may take considerable time to fully utilize
+       these features.
+           Kakadu's minimum-effort policy is fully maintained
+       in the presence of multi-component transforms -- this is the policy
+       of performing only the minimum set of required operations and allocating
+       only the minimum amount of memory required to decompress the spatial
+       regions and output image components which are of interest to the
+       application.
+           Kakadu's JPIP client and server components also properly
+       handle the interactive browsing of images which have been compressed
+       using the multi-component transform.  Note, however, that the only
+       JPIP mechanism which allows requests to be expressed in terms of
+       output components from a multi-component transform is the "context"
+       command -- this must be used in conjunction with JPX compositing
+       layers, which are defined in terms of multi-component transform
+       output components instead of raw codestream components prior to
+       multi-component transform inversion.  What this means in practice is
+       that your components must be individually identified by separate
+       JPX compositing layers if you want to be able to browse multi-component
+       transform output components individually using JPIP.  This is exactly
+       the sort of thing you might like to do to browse a medical image
+       volume or a hyperspectral image set.  You can test all this out with
+       the "kdu_server" and "kdu_show" demo apps, being careful to associate
+       the output image components with separate JPX layers during
+       compression -- this can be done using the `-jpx_layers' argument to
+       "kdu_compress".
+           For more on multi-component transforms, be sure to consult the
+       "kakadu.pdf" overview document, which has been upgraded to reflect
+       features found in version 5.0 -- see especially Section 4 in this
+       document.
+    4) Now uses correct Part-2 syntax to write codestreams which use the
+       alternate code-block alignment required for compressed-domain
+       rotation (as performed by "kdu_transcode" for example) -- previous
+       versions included this only as an experimental feature, without
+       correct Part-2 marker segment syntax.
+    5) Improvements to platform-dependent speedups allow throughput
+       increases of around 20% at low to moderate bit-rates on Pentium-4
+       platforms.  The Altivec implementation (Power PC vector processor)
+       now also works correctly under all conditions, including
+       region-of-interest decompression.  Speedups have been extended to
+       arbitrary wavelet transform kernels and also to inter-component
+       wavelet transforms, as they may appear in a Part-2 multi-component
+       transform.
+    6) Included fixes supplied by a 3'rd part to the way in which
+       "kdu_hyperdoc" generates Java (JNI) interfaces to Kakadu.  These
+       fixes avoid some rare race conditions which could previously occur
+       in multi-threaded Java applications using Kakadu.
+
+    NEW in v4.5
+    -----------
+    1) Support for rendering, scaling, rotating and compositing Motion
+       JPEG2000 video tracks in `kdu_region_compositor'.
+    2) The above features are partially demonstrated by new video playback
+       facilities in "kdu_show", which can now browse JP2, JPX, MJ2 and
+       raw codestream files.
+    3) Expanded the "kdu_merge" demo application to support writing of
+       both JPX and MJ2 file types, based on one or more JP2/JPX/MJ2 input
+       files.  The new capabilities include the ability to stitch MJ2
+       tracks from one or more files, to write multiple MJ2 tracks, to
+       create MJ2 tracks from any mixture of still frame and video input,
+       based on any of the accepted input file types, and the ability to
+       create interlaced video tracks based on still images representing
+       the individual fields -- note, however, that "kdu_show" will currently
+       only play the first field (correctly scaled) of each frame in an
+       interlaced track.  These features give you new ways to create
+       MJ2 files and hence VIX files, starting from still pictures rather
+       than existing video massaged into a VIX file -- VIX files, although
+       mindbogglingly simple, had created some confusion for newcomers.
+    4) Replaced nearest neighbour interpolation with an efficient bilinear
+       interpolation for the case where `kdu_region_decompressor' is
+       required to use non-integer rational expansion factors.  This
+       improves the viewing experience in "kdu_show" (or more generally
+       any application built on `kdu_region_compositor') when working with
+       complex composited imagery, where all composition layers cannot
+       simultaneously be rendered at a native size.
+    5) Kakadu now provides everything needed to internationalize or
+       otherwise customize all of the text printed by error or warning
+       messages.  This is done in a manner which is platform independent
+       and fully compatible with earlier usage of the `kdu_error' and
+       `kdu_warning' services.  All original text is kept in the source
+       files in essentially the same way as before, but may optionally
+       be compiled out so as to rely upon a text registry.  A new tool,
+       "kdu_text_extractor" is provided to automatically generate separate
+       source files which can be included in the target application to
+       register all the original text which is compiled out in this way.
+       You can then create new versions of these generated files with
+       translated (partially or fully) or otherwise customized versions
+       of the text.  Translations can use UTF-8 or UTF-16 (Unicode)
+       character sets, or any mixture of the two.  The textual aspects
+       of all re-usable components (i.e., everything except demo code)
+       has been prepared for extraction and translation using these tools.
+    6) Some minor bug fixes
+
+    NEW in v4.4
+    -----------
+    1) Support for arbitrary scaling factors has been introduced into
+       `kdu_region_decompressor' and `kdu_region_compositor'.  This
+       means that you can compose, colour transform and alpha blend
+       codestream image components which have arbitrarily related sizes.
+       This is specifically required to fully support the JPX file format.
+    2) New facilities to derive region-based progress information for
+       JPIP remote browsing applications -- demonstrated by a new
+       progress indicator in "kdu_show" when used for JPIP browsing.
+    3) Full support for fragmented and linked codestreams, represented
+       by JPX fragment table boxes.  Amongst other things, this allows
+       codestream data to be stored in a different file to that which
+       describes a JPX composition or animation.  Useful for creating
+       presentations, albums, etc. while keeping original content
+       separately from the presentation file.  Such files are correctly
+       handled by all Kakadu demo applications and the changes required
+       to bring this support into existing applications are either nil or
+       minuscule (at most one changed function call and renaming one class
+       in the worst case).  Presentations with externally linked codestreams
+       are correctly distributed by the "kdu_server" tool using efficient
+       JPIP streaming equivalents.
+    4) Fixed a number of minor bugs -- there are no known bugs in Kakadu.
+
+    NEW in v4.3
+    -----------
+    The most significant innovations in v4.3 relate to the handling of
+    massive tiled images, both for compression and decompression.  The
+    improvements extend Kakadu's ability to handle large images well
+    beyond the Tera-pixel boundary.  These and other significant changes
+    may be summarized as follows:
+    1) Extended the automatic internal cache management system to
+       automatically swap whole tiles in and out of memory, based on
+       cache thresholds set by the application.  This prevents memory
+       growth in applications which require persistent codestream access
+       (to render the stream from multiple points of view), even when
+       there is no PLT (packet-length) pointer information, subject
+       to the presence of tiling.  This means that codestreams with contain
+       either multiple tiles or addressable precincts, or both, can now be
+       efficiently manipulated.  Applications can obtain the advantages of
+       the new more efficient cache management without any changes at all,
+       although an extra interface function has been provided to allow
+       customization of the tile unloading process.
+    2) Typical tile templates are now cached internally to the codestream
+       management system, so that the cost of tile instantiation within the
+       codestream management system is substantially reduced, for applications
+       which need to render a massive number of tiles at very low resolution
+       (where the effective tile size can become very small).
+    3) The core codestream generation machinery can now generate TLM
+       (tile-part-length) marker segments itself, obviating the need for a
+       separate post-processing of the generated codestream with "kdu_maketlm".
+       Most importantly, this functionality even works when codestreams are
+       generated in fragments (see next point).
+    4) The core codestream generation machinery can now compress tiled images
+       in fragments, where each fragment is compressed independently and
+       can consist of any subset of the tiles from the full codestream.
+       Fragments are automatically stitched together and a correct set of
+       TLM marker segments can be generated for the entire codestream,
+       by selectively rewriting segments of the main header.  These
+       features are demonstrated by the new `-frag' argument to the
+       "kdu_compress" demo utility (see "Usage_Examples.txt"), but they
+       have more general application; for example, by clever construction
+       of an appropriate `kdu_compressed_target' object, you can arrange
+       to compress fragments concurrently (e.g., to leverage a multi-CPU
+       architecture) rather than sequentially, as is done by "kdu_compress".
+    5) The `kdu_region_decompressor::process' functions now provide a great
+       deal more flexibility in the way the dynamic range and signed/unsigned
+       attributes of the rendered sample values can be configured.  Whereas
+       you used to have to set a fixed dynamic range for all rendered
+       channels and they all used to be rendered as unsigned quantities, it
+       is now possible to alter this behaviour so that the dynamic ranges
+       and signed/unsigned properties are derived from the relevant
+       codestream and/or file format headers.  It is also possible to
+       explicitly provide application-specific per-channel rendering
+       attributes via the `kdu_region_mapping' object.  Existing
+       applications should be largely unaffected by these changes, except
+       that applications which render directly from JPX files (rather than
+       going via `kdu_region_compositor') need to supply an additional JPX
+       interfaces to the `kdu_region_mapping::configure' function.
+    6) The JPX file format reader can now read JPX files which were
+       mistakenly written without a reader requirements box (earlier
+       Algovision writers did this).  Omission of the reader requirements
+       box is technically illegal, but that box is so poorly defined as to
+       be next to useless for practical applications, so it is better 
+       not to require its existence, rather than than fail to read
+       existing non-compliant files.
+    7) Modified the JPIP client/server implementation to allow more
+       extensive re-use of TCP transport channels; the channel no
+       longer needs to be closed down at the end of a JPIP session,
+       so it can be re-used in an immediately following session -- this
+       allows more efficient disconnect/reconnect cycling and avoids
+       creating the appearance of a denial of service attach in such
+       cases.
+    8) Fixed a number of bugs in Kakadu's JPIP server implementation,
+       in ROI generation (bug was created accidentally in v4.2)
+       and in the conversion of more exotic JPX colour spaces, such as
+       CIE-Lab (see "Updates.txt").
+
+    NEW in v4.2
+    -----------
+    1) JPIP client-server components extended to fully support JPX
+       -- efficient interactive remote browsing of complex JPX images
+          with any number of compositing layers, codestreams and animation
+          frames, with different scale factors, cropping and placement.
+       -- efficient delivery of all metadata (text labels, XML, etc.) which
+          is relevant to the current view window, while avoiding the delivery
+          of any metadata which is not relevant.  Employs a useful sequencing
+          heuristic to interleave the delivery of spatially sensitive
+          metadata with imagery, in a manner which depends on the apparent
+          size of the region to which the metadata applies, at the current
+          viewing resolution.
+    2) Dramatic speedups for heavily tiled images
+       -- this is achieved by changing the internal implementation of
+          `kdu_params' to avoid linear list searching and allocation of
+          storage for redundant parameters.  Images with a very large number
+          of tiles can now be compressed and decompressed much faster, with
+          speedup factors of more than 10 in some cases.  In this way, the
+          compression and decompression times for tiled images are now
+          substantially the same as for untiled images, except for very small
+          tile sizes (e.g., smaller than 256x256).
+    3) SIMD speed-ups for the UltraSparc (VIS instruction set) and the
+       PowerPC (Altivec instruction set), to mirror the wavelet colour
+       transform speedups previously only available for Intel processors
+       (MMX instruction set).  The Altivec code was originally contributed
+       by Monroe Williams.
+
+    NEW in v4.1
+    -----------
+    1) All new, extensive support for JPX files, including the ability
+       to read and write all aspects of virtually all interesting JPX files,
+       excepting only fragment tables and cross reference boxes (will be
+       added next time around).  Full support for: multiple codestreams;
+       multiple compositing layers; complex compositions and animations;
+       all the JPX enumerated colour spaces; unrestricted ICC profiles;
+       complex colour conversion with application-controllable
+       quality/complexity/gamut tradeoffs; extensive and efficient
+       metadata management facilities through a scale-space hierarchy;
+       built for complete compatibility with dynamic remote browsing
+       applications based around JPIP (no trivial matter, considering that
+       data may become available asynchronously and out of order).
+    2) A new, very powerful high level object, `kdu_region_compositor'.
+       This object absorbs virtually all of the non-GUI related machinery
+       of "kdu_show" into a platform-independent component, while adding
+       a great deal more functionality.  Full support for: image composition;
+       animations; efficient alpha blending; interactive roaming within the
+       image with minimal recourse to decompression of new content as it
+       enters the picture; scaling; rotation; metadata overlays (customizable
+       by the application); efficient context-dependent metadata searches;
+       etc.
+    3) A new tool, "kdu_merge", for creating rich JPX content by merging,
+       recombining and referencing contents from existing JP2, JPX or MJ2
+       files.  Allows the insertion of video clips, alpha-blended imagery
+       over background, etc, etc.
+    4) Many new features for "kdu_show", building upon the capabilities of
+       the new `kdu_region_compositor' object.  Supports rich navigation
+       through complex JPX files, metadata editing, control of metadata
+       overlays for region-sensitive metadata, dynamic text labeling, etc.
+    5) A number of minor bug fixes and interface enhancements (see the
+       usual "Updates.txt" log which comes with the license).
+
+    NEW in v4.0.3
+    -------------
+    Version 4.0.3 implements the changes introduced to the JPIP standard
+    in going from CD (committee draft) to FCD (final committee draft).
+    A couple of these changes render the implementation in v4.0.3 not
+    backward compatible with that in v4.0.2 -- unfortunate, but hopefully
+    there will be no more such incompatible changes, since the standard
+    is now nearly set in stone.    
+
+    NEW in v4.0.2
+    -------------
+    Version 4.0.2 is mainly a bug-fix release, but it does include
+    improved parsing logic for tiles and tile-parts, which can dramatically
+    reduce the time and memory taken to decompress large tiled images at
+    reduced resolutions or reduced quality.
+
+    NEW in v4.0
+    -----------
+    The most significant changes in Version 4.0 relate to support for the
+    new JPIP standard (JPEG2000, Part 9), which is currently at CD (Committee
+    Draft) status.  JPIP is JPEG2000's standard for interactive image
+    dissemination over the internet, including the dissemination of files
+    with multiple code-streams and complex meta-data.  In order to offer
+    a comprehensive services in support of JPIP, Kakadu's JP2 file format
+    architecture has been completely revamped to provide a hierarchical
+    family of objects which allow for JP2 family file format parsers to
+    remain completely oblivious to whether a file is local or being
+    served remotely by a dynamic JPIP server.  Although fully derived
+    instances of this architecture are currently provided only for raw
+    code-streams and the JP2 file format itself, almost all the effort
+    required to fully support dynamic user-sensitive delivery and processing
+    of other JP2 family file formats has already been made.  Version 4.1
+    is expected to provide a complete solution for JPX and a complete
+    solution for interactive delivery of MJ2 (motion JPEG2000) content
+    should also follow shortly.  Meanwhile, there are many immediate
+    benefits, including the ability to include, service and process
+    arbitrary application-defined additional boxes within JP2 files.  The
+    "kdu_show" utility comes with a meta-data viewer (use the `m' accelerator
+    of the view menu to activate it) which demonstrates the incremental
+    appearance of meta-data at the client in the midst of a JPIP interactive
+    session.  There are various ways to control such delivery, e.g. by
+    explicitly specifying a "metareq" request field in the URL used to access
+    a remote image, but for the moment these features are mainly for testing
+    JPIP support and the integrity of the underlying architecture.  A detailed
+    public description of the JPIP standard is not yet available, but some
+    pointers may be found in the "jpip-links-and-info.html" file supplied in
+    the "documentation" directory.
+
+    Version 4.0 now includes a collection of three powerful high level
+    objects designed to DRAMATICALLY simplify the development of applications
+    based on Kakadu.  All of these may be found in the "apps/support"
+    directory.  The first such object, `kdu_region_decompressor', is a
+    revamped version of the old `kdr_region_decompressor' object which was
+    used to implement "kdu_show" and was also a popular tool for application
+    developers.  The new version supports the management of additional
+    channels (including alpha channels) along with the imagery, along with
+    a rich set of memory buffer organizations and data precisions, which
+    should satisfy the needs of virtually all interactive imaging applications.
+
+    The other two support objects, `kdu_stripe_compressor' and
+    `kdu_stripe_decompressor' dramatically simplify the implementation of
+    memory-resident compression and decompression applications.  Again, they
+    provide support for a rich set of memory buffer organizations and
+    data precisions.  A single function call can compress an image residing
+    in memory, or decompress an image into a memory buffer.  More usefully,
+    however, the application can compress or decompress images incrementally
+    in stripes, based on buffers which suit the application at hand.  The
+    objects even provide educated recommendations on the best stripe
+    configurations to use, keeping application-specific code to a bare
+    minimum.  These objects are now used to make the "simple_example_c" and
+    "simple_example_d" applications significantly simpler again.  They are
+    also demonstrated by two new example applications, "kdu_buffered_compress"
+    and "kdu_buffered_expand" which serve to bridge the gap between the
+    very simple demonstrations and the much more complex "kdu_compress" and
+    "kdu_expand" examples.
+
+    Amongst other matters, the documentation has been updated, all bugs
+    reported to date have been fixed, and the block truncation prediction
+    algorithm has been made a great deal more robust than it was before,
+    without sacrificing the speed improvements for which it has been
+    responsible.
+
+    NEW in V3.4
+    -----------
+    The most significant change in Version 3.4 is the introduction of
+    substantial support for incremental code-stream generation.  This
+    allows the compressed data to be written out incrementally while
+    compressing huge images, thereby avoiding the need to store the
+    entire compressed image in memory.  To use this capability effectively,
+    you will need to spend a little bit of effort reading the extensive
+    documentation provided for the `kdu_codestream::flush' function.  You
+    might also take a look at the usage statement produced by the
+    `kdu_compress' demo application, under the heading, `-flush_period'.
+    You might also refer to the `Usage_Examples.txt' file under item
+    (t) of the compression examples.
+       Additional new features include support for 64-bit representations
+    and file indexing under GCC (has been available under Win32 builds for
+    a long time), and an important bug fix to "kdu_server".
+
+    NEW in V3.3
+    -----------
+    The most significant change in Version 3.3 is the introduction of a
+    completely new set of client-server objects.  The client family includes
+    the patform independent "kdu_cache2" base object, and the multi-threaded
+    WIN32 "kdu_client2" object, which are intended to replace "kdu_cache"
+    and "kdu_client".  The old client objects are still shipped with the
+    distribution, but will be deprecated.  The server family includes
+    the patform independent "kdu_serve2" object, and the heavily
+    multi-threaded Win32 specific "kdu_server2" application.  Again, the
+    original "kdu_serve" and "kdu_server" elements are still shipped,
+    but are being deprecated.  The new files implement our proposal for
+    the JPIP (JPeg2000 Internet Protocols) standardization effort, in a form
+    which is compatible with the most recent working draft produced by
+    ISO/IEC JTC1/SC29/WG1's JPIP standardization effort, which is destined
+    to become Part 9 of the JPEG2000 family of standards.  The new protocol
+    shares many elements in common with the original JPIK protocol
+    implemented by the earlier client-server files, but there are a large
+    number of important differences.  Most significantly, the new protocol
+    supports pure HTTP transport, as well as a more efficient TCP variant,
+    together with more flexible cache management.
+       The new client-server implementation offers file-based caching of
+    data received by a client in a previous interactive session, as well as
+    both session-oriented and session-less communications.  The server
+    implementation now also includes a rate-distortion optimization
+    element which takes information generated during compression, together
+    with the client's window of interest, and uses this information to
+    sequence information in an order which will increase the quality of
+    the received image, within the window of interest, as fast as possible.
+    Preliminary experiments indicate that the R-D optimal sequencing
+    algorithm improves image PSNR by up to 8dB, when compared to the
+    non-optimal sequencing employed by the earlier "kdu_server" implementation,
+    after receiving the same amount of data.
+       All known bugs have been fixed (we have a very large user-base now to
+    report bugs).
+
+    NEW in V3.2
+    -----------
+    The most significant addition in Version 3.2 is a full set of Java
+    native interfaces to virtually all elements of the Kakadu system.
+    These are automatically generated by the "kdu_hyperdoc" utility,
+    which also builds their descriptions into the extensive HTML
+    documentation which it generates for the Kakadu framework.  A
+    number of additional functions and capabilities have been added
+    to Kakadu to improve the efficiency and completeness of the Java
+    language bindings.
+
+    NEW in V3.1
+    -----------
+    Version 3.1 principally adds new functionality to assist in
+    implementing video applications on top of the Kakadu framework.
+    The new video support includes:
+    1) The ability to restart the internal code-stream management
+       machinery, without completely tearing it down and rebuilding
+       it between successive video frames.  Internal logic determines
+       the amount of re-use which is possible, based on changes
+       in coding parameters, if any.
+    2) Substantial support for the new Motion JPEG2000 file format.
+       There is no inter-frame compression here.  Just frame-by-frame
+       compression using JPEG2000.  The file format is essentially a
+       subset of the quick-time file format.  It is being standardized
+       as ISO/IEC 15444-3.
+    3) Two video-oriented demonstration applications, "kdu_v_compress"
+       and "kdu_v_expand".  These are file based for the time being,
+       allowing compression to and decompression from the Motion
+       JPEG2000 file format and showing how other video oriented
+       compressed data sources and targets may be readily supported.
+    4) Some efficiency improvements for the compressor.
+
+    In addition to the above, a new "kdu_render" demonstration
+    application is provided to assist developers in exploiting the
+    powerful high-level object, "kdr_region_decompressor".  This
+    is probably the simplest and most powerful means of bringing
+    JPEG2000 functionality to a rendering application.
+
+    There have also been a number of minor bug fixes.
+-------------------------------------------------------------------------------
+    NEW in V3.0.8
+    -------------
+    All of the documentation which was distributed throughout
+    the publically includable header files is now automatically
+    compiled into a fully integrated documentation system.  You
+    should find that the new "kdu_hyperdoc" utility compiles this
+    documentation as soon as it is built (using the Makefiles
+    or the Visual C++ build environment).  If not, you can always
+    run the hyperdoc tool yourself.  It constructs a tightly
+    integrated network of more than 500 HTML files, which
+    substantially eases application development.
+-------------------------------------------------------------------------------
+    NEW in V3.0
+    -----------
+    Version 3.0 is a very substantial upgrade on previous versions,
+    including many new features and efficiencies, in large part
+    realizing the original objectives of the Kakadu architecture.
+    While it is not possible to give details of all the new features
+    in this brief description, the following summary should provide
+    an indication of what Kakadu can now do.  Some additional
+    details may be found in the "Updates.txt" file.  The major new features
+    may be grouped into three areas as follows:
+
+    1) Support for very large images, including images whose compressed
+       size is larger than 2^32 bytes! In this regard, the Kakadu core
+       (actually, the "kdu_codestream" object and the family of interfaces
+       which it manages) now supports:
+         a) file seeking;
+         b) the ability to generate and utilize optional pointer marker;
+            segments in the code-stream (TLM and PLT segments, specifically);
+         c) the ability to load JPEG2000 packets on-demand in random order, so
+            long as the data source is seekable, PLT segments are available,
+            and all packets of each precinct appear consecutively (otherwise,
+            the PLT information itself cannot be efficiently represented
+            internally);
+         d) application-customizable internal caching capabilities to control
+            efficient recycling of memory resources when the conditions exist
+            to re-load JPEG2000 code-stream packets on-demand.
+       The upshot is that extremely large images may be decompressed,
+       manipulated or served up to remote clients (see client-server features
+       below) without consuming excessive machine memory resources.
+
+    2) Support in the core system for the needs of client-server applications.
+       To this end, the Kakadu core system (actuall, the "kdu_codestream"
+       object and the family of interfaces which it manages) now supports:
+         a) cached compressed data sources (these are sources which may be
+            supplied to "kdu_codestream::create" in the same way as a raw
+            file, a JP2 file, or a memory buffered data source, yet they
+            offer truly random access into JPEG2000 code-stream packet data);
+         b) the ability to construct JPEG2000 packets directly at the
+            application level, in any order, recovering their contents on
+            demand and with full support for rate control procedures;
+         c) the above capability is offered through the introduction of a
+            third overloaded "kdu_codestream::create" function which creates
+            a so-called "interchange" object.  Interchange objects offer the
+            machinery required to perform on-the-fly transcoding of existing
+            JPEG2000 data sources (e.g., files, cached sources, sequential
+            memory buffers, etc.) into the individual packets (created on
+            demand and in any order) of a new compressed representation
+            which may have different precinct dimensions, error protection
+            features, etc.
+
+    3) Application level support for client-server applications, which builds
+       upon the more fundamental architectural features of the core system to
+       offer high level services for exchanging data interactively or otherwise
+       between a server and a cached compressed data source.  To this end,
+       the Kakadu package offers the following new elements:
+          a) A multi-layered hierarchy of objects derived from the abstract
+             base class, "kdu_compressed_source", which provides access
+             to caching and client services at different levels.  Only the
+             most derived object, "kdu_client", contains platform
+             dependent elements in its implementation (sockets and
+             multi-threading are both used at this level with a WIN32
+             implementation at present -- could easily be migrated to
+             BSD sockets and POSIX-threads).
+          b) A generic, platform independent "kdu_serve" object which can
+             perform in-place transcoding of any valid JPEG2000 source,
+             on-demand incremental packaging of transcoded packets (with
+             small precincts) into abstract messages for delivery to the
+             base "kdu_cache" object, based on a remote client's region,
+             resolution and components of interest (these may change at
+             any point).
+          c) A fully functional "kdu_server" application which can interact
+             directly with the "kdu_client" object over a network connection,
+             supporting multiple simultaneous clients, multiple open sources,
+             source sharing between clients, advanced cache management
+             capabilities, remote administration and host delegation.
+          d) The "kdu_show" application is able to take advantage of the
+             "kdu_client" caching compressed data source to act as a
+             remote image browser.
+             Interestingly, the inclusion of remote browsing capabilities into
+             "kdu_show" had hardly any impact upon the application, since
+             Kakadu remote clients look like any other compressed data source
+             (anything derived from "kdu_compressed_source") from the
+             perspective of the decompression and rendering machinery.
+       Find out more about the client-server demonstration applications
+       by reading the "kdu_server" section of the "Usage_Examples.txt"
+       file.
+-------------------------------------------------------------------------------
+    NEW in V2.2
+    -----------
+    * Extensive support for ROI (Region of Interest) specification at
+      encode time.
+      -- A general purpose region specification framework is supplied,
+         together with two object derivation examples which
+         demonstrate a very simple specification approach (single rectangular
+         region of interest) and a very sophisticated specification approach
+         (auxiliary image carries the region information and is efficiently
+         and automatically scaled to match the dimensions of each of the image
+         components being encoded).  It should be easy to extend these examples
+         to incorporate dynamic region specification (e.g., in an interactive
+         clinical setting).
+      -- In addition to implementing the "max-shift" ROI mechanism, Kakadu
+         provides additional capabilities, including the ability to force
+         specific resolution levels fully into the foreground and the
+         ability to use ROI information to control distortion weights for
+         individual code-blocks.  These capabilities provide the user
+         with important to trade the drawbacks of the "max-shift" method
+         and the distortion weighting method.  See the "kakadu.pdf" file
+         for more on this.
+    * MMX optimizations compile under GCC (e.g., for Linux) as well as MSVC
+    * Migration to new style ANSI C++ "iostream" package
+    * "kdu_transcode" can unwrap a JP2 file, exporting the code-stream.
+-------------------------------------------------------------------------------
+    NEW in V2.1
+    -----------
+    * Full support for the JP2 file format, including a rational interface
+      to the sometimes scattered information embedded in JP2 boxes.  The
+      "kdu_show" application performs all palette dereferencing, channel
+      mapping, interpolation and colour transformation tasks expected of
+      a conformant JP2 rendering application.  The "kdu_compress" application
+      demonstrates the construction of interesting JP2 files, including
+      the construction of useful embedded ICC profiles.  Of course, the
+      JP2 file format is optional and raw code-streams can still be
+      generated and recovered.
+    * Improved fixed point processing path for colour and wavelet
+      transforms, based on a thorough BIBO analysis to optimize dynamic
+      range utilization.
+    * Improved quality layer construction rules, including the option to
+      specify rate-distortion slope thresholds directly; many applications
+      for this, including long time constant rate control feedback loops
+      for video applications.
+    * More extensive documentation.
+-------------------------------------------------------------------------------
+    NEW in V2.0
+    -----------
+    * Slight modification to architecture to cleanly separate core Kakadu
+      system from application-specific tools.  Core system now available
+      as a DLL.
+    * Core interface functions should remain stable as more features are
+      added in the future.
+-------------------------------------------------------------------------------
+    NEW in V1.2
+    -----------
+    * Supports both 32-bit and 16-bit representations for all data
+      processing operations (quantization, DWT, colour transform).
+      16-bit representations in the irreversible path use a fixed
+      point representation and associated arithmetic.
+    * Improved throughput due to: 1) the introduction of 16-bit data
+      types; 2) tighter control of memory allocation to minimize
+      cache fragmentation; 3) the introduction of MMX processing for
+      the inverse DWT and colour transformations; and 4) the inclusion
+      of X86 assembler optimized block decoding functions.
+        -- End-to-end decoder throughput (discounting file write time) is
+           improved by about 20% for monochrome and 50% for colour images
+           at bit-rates of 0.5 to 1.0 bpp.  This improvement is
+           relative to Kakadu V1.1, which was already much faster than
+           existing implementations of which we are aware.
+    * You can now extract (with `kdu_transcode'), reconstruct (with
+      `kdu_expand') or interactively select (with `kdu_show') any
+      individual image component from a JPEG2000 code-stream.
+    * You can now interactively control the number of quality layers
+      used to reconstruct the image samples displayed by "kdu_show".
+    * Last tile-part of every tile now identifies the number of tile-parts
+      for the tile (optional in the standard, but a good idea -- helps
+      interworking with JJ2000).
+    * Fixed a transcoding bug reported by Kodak and several other
+      unreported bugs.
+    * Minor modifications to the automatic visual colour weighting scheme.
+-------------------------------------------------------------------------------
+OBJECTIVES OF KAKADU
+--------------------
+   Kakadu is intended to be a complete implementation of the JPEG2000
+standard, Part 1, -- i.e., ISO/IEC 15444-1.  This new image compression
+standard is substantially more complex than the existing JPEG standard,
+both from a computational and a conceptual perspective.
+   Development of the Kakadu system was originally motivated by the need
+for a good software implementation of the standard to accompany the book
+by Taubman and Marcellin (to be published by Kluwer Acadmic Publishers).  An
+effort has been made to make the terminology and notation used
+in the software consistent with that in the book.  Both the book and the
+software take advantage of the opportunity to reference each other.
+   The Kakadu software goes far beyond these original demonstration purposes,
+however, to provide a rock solid foundation for a range of commercial and
+non-commercial applications.  Kakadu also provides comprehensive and
+efficient implementations of most (some might say all) of the interesting
+features from Part-2 of the JPEG2000 standard, as well as Part-3 (motion
+JPEG2000) and Part-9 (JPIP interactive communication protocols).
+   By making a consistent and efficient implementation of the standard widely
+available for both academic and commercial applications, we hope to encourage
+the widespread adoption of JPEG2000.  See the end of this file for
+information regarding copyright and licensing details.
+   The Kakadu software has been written specifically with a variety of
+different types of applications in mind.  These include:
+     -- Image/video compression, including 3D volumes
+        * Compression of image files in a variety of formats is demonstrated
+          by the "kdu_compress" utility.  Motion video compression is
+          demonstrated by "kdu_v_compress"
+     -- Image/video decompression, including 3D volumes
+        * Streaming decompression of a JPEG2000 code-stream to an output
+          image file is demonstrated by the "kdu_expand" utility.
+          Decompression of Motion video is demonstrated by "kdu_v_expand".
+     -- Transcoding between related representations of the same content
+        * Many of the transcoding operations which are natural in the
+          context of JPEG2000 are demonstrated by the "kdu_transcode" utility.
+     -- Interactive rendering applications.
+        * Interactive (or non-linear) decompression and rendering to screen
+          are demonstrated by the "kdu_show" utility, which supports any
+          JP2, JPX, MJ2 or raw codestream file.
+     -- Client-server applications
+        * The "kdu_server" application provides a working demonstration of
+          the ability to serve any valid JPEG2000 file (raw code-stream or
+          full JP2/JPX compatible file) to one or more remote clients, using
+          interactive feedback from the client concerning its current region
+          and resolution of interest to determine the most appropriate
+          information to transmit at any given point.  The "kdu_show"
+          application is also a fully functional network client for the
+          "kdu_server" application.  Together, these utilities and the
+          underlying objects on which they are built, provide extensive
+          support for the new JPIP (Jpeg2000 Internet Protocols)
+          standard, which reached the FCD (Final Committee Draft) stage in
+          July 2003.
+
+   The JPEG2000 algorithm requires significantly more memory and
+computational resources than the original JPEG algorithm.  For this
+reason, a key objective of the Kakadu implementation is to demonstrate
+efficient implementation techniques.
+   Significant effort is made to minimise memory consumption, during both
+compression and decompression.  This includes not only the memory required
+to perform data processing operations, such as the DWT, but also the
+amount of memory tied up with the compressed image representation and
+associated structures.  Caching services are offered to enable the
+tailoring of memory resources.
+   Significant effort has also been expended to provide an efficient
+implementation of the embedded block coding operations and also the DWT.
+The generic implementations are themselves very efficient and should
+be suitable for any processor architecture which supports 32-bit integers.
+For the Pentium family of processors, additional forms are provided
+which are designed to accommodate the very restricted set of registers
+offered by these processors and also to exploit MMX type instructions.
+Many modern processors have closely related SIMD-type instruction sets
+and developers should find that they can borrow from the MMX implementation
+strategies illustrated here.
+
+-------------------------------------------------------------------------------
+RELATIONSHIP TO THE VM (verification model) SOFTWARE
+----------------------------------------------------
+   At the time of this writing, four other more or less complete
+implementations of Part 1 of the JPEG2000 standard are in circulation.
+One of these is the JPEG2000 verification model itself.  A great
+deal of the verification model was written by Dr. Taubman and its
+copyright is held by Hewlett-Packard corporation.  To the best of our
+knowledge, this software has not been released into the public domain.
+In view of the author's connection with the VM, a few words are in order
+concerning possible connections between the two software systems.
+   The Kakadu software has been written from scratch, without borrowing
+any of the VM source code.  The fundamental architecture is very different
+from that of the VM.  This is because the VM serves a quite different role
+to Kakadu.  The source from which the current VM emerged (VM3A, authored
+by Dr. Taubman) was created to serve the unforeseen needs of an evolving
+standard, with many extended technologies and options which are not included
+in Part 1 of the standard.  The code-stream syntax was not defined at the
+time when the VM3A was created and so its structure could not be exploited.
+The VM was never intended to be a foundation for commercial applications
+and so features of the standard which were not brought into question by
+the committee were often not implemented.  Examples of such previously
+untested capabilities include compressed domain geometric manipulations,
+region-of-interest decompression, memory and computation saving heuristics
+for the compressor, and a variety of transcoding operations.
+   The VM contains carefully optimised implementations of the block encoder
+and decoder functionality to demonstrate the fact that computational
+complexity is not unreasonable.  The Kakadu software does not use these
+optimisations.  Instead, it employs a different set of optimisation tricks
+which yield somewhat superior performance to the VM (on the order of 20%
+throughput improvement, with less obscure elements in the code).  Common
+to both implementations is the notion of context broadcasting, which was
+first implemented by Dr. Taubman in work leading to his PhD dissertation
+at the University of California, Berkeley, in 1994.  Context broadcasting
+is explained in the book by Taubman and Marcellin.  The MQ coder
+implementation used by the VM was derived from an original implementation
+supplied by Mitsubishi.  For Kakadu, a completely new implementation of the
+MQ coder has been provided, offering a number of performance improvements.
+   The key point of commonality in the VM and Kakadu architectures is the
+use of a "push model" for passing data through the compression system and
+a "pull model" for recovering data from the decompression system.
+   Substantial interoperability tests have been performed between the
+VM and Kakadu, although bugs may remain in either or both implementations.
+We note that where the VM and Kakadu differ in their interpretation of
+certain subtle aspects of the standard, the fault, to date, has consistently
+been found to lie with the VM.
+
+-------------------------------------------------------------------------------
+GUIDING PRINCIPLES
+------------------
+   The Kakadu system is implemented in C++, partly because the language
+lends itself to object-oriented implementation strategies and partly
+because it allows for low-level optimisation of memory structures and
+compute intensive operations.
+   As a general rule, object implementations are rigorously isolated from
+their clients, whenever such isolation does not impose a significant burden
+on memory or computational resources.  High level objects provide pure
+function interfaces and buried state information to facilitate re-use in
+both static and dynamic binding environments.  On the other hand, low level
+objects, such as "kdu_block", expose data directly to the client (usually
+a block encoding or decoding object) to facilitate efficient implementation.
+At the lowest level, the MQ coder implementation offers fast macros and
+even assembler-optimized code for implementing the binary symbol coding
+operations, although these are interchangeable (via compilation switches)
+with pure function interfaces.  Compilers are not always able to inline such
+low level coding functions with the same efficiency as the supplied code.
+   Resources which are potentially memory intensive are created as late
+as possible, and cleaned up or recycled as early as possible.
+   Error and warning messages are delivered through customisable channels
+whose implementation is able to cater for the requirements of different
+application environments -- e.g., console I/O might not be supported, or
+termination of the process may be unacceptable.  It is possible to
+throw exceptions from inside any error handler and fully clean up all
+resources allocated prior to the error.  These services also provide
+considerable support for multi-lingual applications, or applications
+which choose to conceal selected internal messages from an end user.
+   Assert statements appear frequently throughout the code, which has
+been very helpful in catching the few remaining bugs.
+   Source files rarely if ever contain tabs, or line lengths in excess of
+80 characters, since these can be bothersome to different editors.
+
+   A distinction is drawn in Kakadu between what is called the "core
+system" and application components.  These reside in two different top
+level directories called "coresys" and "apps" respectively, and the
+core system is usually build separately as a static or shared (DLL) library.
+The core system is designed not to be excessively large, while providing
+core capabilities which should be required by most substantial applications.
+Application components are targeted toward one or another application specific
+tasks: image I/O; compressed data I/O; support for wrapping file
+formats such as JP2/JPX/MJ2; objects which implement data flow control
+policies; objects designed to facilitate client-server implementations; and
+the demonstration applications themselves.
+
+-------------------------------------------------------------------------------
+SELECTED FEATURES
+-----------------
+* The Kakadu compressor is able to produce code-streams described by
+  any legal combination of main and tile-part header marker segments.
+  Moreover, it has a uniform language for describing such code-stream
+  parameters and Kakadu is able to produce a description of any existing
+  JPEG2000 code-stream in this same language.
+    -- There are no substantial restrictions in terms of supported image
+       bit-depths, image dimensions, number of image components,
+       sub-sampling factors, or compressed data organisation.
+
+* The Kakadu framework provides applications with an abstract view of
+  the image represented by the underlying code-stream, transparently
+  managing geometric transformations, decompressor regions of interest
+  and reductions in the resolution or number of image components.  Such
+  an abstraction has numerous potential benefits.  The interactive
+  rendering performed by the "kdu_show" utility exploits these capabilities
+  extensively.  Even in the simple case of reading or writing bottom-up
+  BMP files, these capabilities come in handy in avoiding the need to
+  buffer uncompressed image samples -- something which could become an
+  intolerable burden if you have to compress a 5 GByte BMP file!
+
+* The Kakadu system achieves substantially higher processing throughput
+  and consumes substantially less memory than other
+  implementations of which we are currently aware.  SIMD-type machine
+  specific optimisations are provided for x86 processors, supporting
+  and leveraging instructions sets from MMX up to AVX2, as well as ARM
+  processors, supporting and leveraging the NEON instruction set.
+  Historically valuable optimisations have also been generated for the
+  UltraSPARC and PowerPC processors.
+
+* Kakadu uses a particularly efficient structure for representing code-block
+  state information, so that unwanted packets can be parsed away with a
+  small fraction of the overhead demanded by the VM and other implementations.
+  It also has an efficient scheme for managing variable length quantities
+  associated with compressed data.
+
+* Kakadu creates all quantities of any size (including all code-stream
+  data structures) as late as possible (perhaps not at all, if the relevant
+  information is not of interest to the application's view) and discards
+  them as early as possible.  This is true during compression and
+  decompression.
+
+* During compression, Kakadu implements a conservative prediction heuristic,
+  which attempts to avoid encoding steps whose results are almost certain
+  to be discarded during rate allocation.  For large images, at moderate to
+  low bit-rates, this can result in significant speedup.  A closely related
+  mechanism also periodically discards compressed data which is certain not
+  to survive rate allocation.  This can save a huge amount of memory in some
+  cases.
+
+* Kakadu is able to exploit the presence of error resilience information
+  in the code-stream to recover from errors (e.g., transmission errors)
+  in a graceful manner.  The "kdu_show" and "kdu_expand" applications
+  demonstrate these features, providing three different error behaviour
+  modes (fast, fussy and resilient).
+
+* The Kakadu framework supports efficient and lossless compressed domain
+  transcoding between image representations with different organizations,
+  different precinct dimensions, different coding modes and different
+  orientations.  It also supports efficient transcoding (not lossless)
+  to representations with fewer components, reduced resolution or a reduced
+  bit-rate.
+
+* The Kakadu implementation is up to date (to the best of our knowledge) with
+  all relevant ammendments and corrigenda to the JPEG2000 standards.
+
+* Kakadu provides a full implementation of the optional Part 1 file format
+  for JPEG2000, known as JP2.  Code-streams may be produced in isolation
+  or embedded within a JP2 file.  The framework supports writing and
+  reading all meaningful JP2/JPX file attributes and includes support for
+  constructing useful embedded ICC profiles and correctly rendering images
+  described by ICC profiles.  The "kdu_show" application demonstrates
+  rendering from any of these colour spaces, while performing the
+  interpolation, channel mapping and palette transformations required of
+  a conformant JP2-based rendering system.
+
+* Kakadu provides a full implementation of the much more sophisticated
+  Part 2 file format known as JPX (files often have a .jpf suffix),
+  including rendering, blending, composition, animation, rich colour
+  spaces and externally linked codestreams.  JP2 and JPX files can be
+  handled in an integrated framework by using the `jpx_source' and
+  `jpx_target' objects and their derivative interfaces.
+
+* Kakadu provides extensive support for JPX metadata, including discovery,
+  organization, editing and the evaluation of logical expressions for
+  complex metadata ontologies.  Along with this, Kakadu supports JPX
+  cross-references and their use in forming various types of semantic
+  links between metadata elements.  It also provides extensive support
+  for managing regions of interest and related metadata.
+
+* Kakadu supports the Motion JPEG2000 (MJ2 or MJP2) file format,
+  providing a full implementation of the Motion JPEG2000 simple profile
+  (i.e., the profile which enforces all compressed data to reside inside
+  the file, rather than at URL's).
+
+* Kakadu supports all Part-2 multi-component transforms, non-linear point
+  transforms, arbitrary DWT kernels and non-uniform decomposition styles,
+  plus the Part-2 ultra-fast block coding mode.
+
+* Kakadu offers extensive support for client-server applications, on the
+  fly transcoding, multi-level caching, cache-modeling, hierarchical
+  dynamic resequencing of meta-data based on client interests, and many
+  related capabilities.
+
+-------------------------------------------------------------------------------
+KNOWN LIMITATIONS
+-----------------
+   Kakadu is intended to be a complete implementation of the JPEG2000
+standard, Part 1.  That is, the decompressor should decompress any
+Part 1 compliant code-stream whatsoever, and the compressor should be
+able to generate any reasonable Part 1 compliant code-stream.  Barring
+bugs which have not yet been detected, it is our belief that these
+objectives have been achieved, subject to the following limitations:
+ -- Decompressor Limitations:
+    * Only the first 30 magnitude bit-planes of any code-block will be
+      decoded -- this should not impact any reasonable application which
+      requires compression, and is not a source of non-compliance, since
+      code-block truncation is an acceptable and encouraged method for
+      manipulating JPEG2000 code-streams.
+    * All dimensions in the SIZ marker must lie in the range 0 to
+      2^{31}-1 -- i.e., they must be representable as signed
+      32-bit integers without overflow.  The internal implementation actually
+      needs to be able to represent negative-valued canvas coordinates to
+      support geometric transformations. This restriction to 31 bit integers
+      is consistent with the two restricted code-stream profiles, Profile-0
+      and Profile-1, currently described in FPDAM1 to the standard.
+    * Reversibly compressed images with 30 or more bits per sample may not
+      be correctly decompressed.  The standard supports bit-depths of up
+      to 38 bits!!
+ -- Compressor Limitations:
+    * The compressor has the same three limitations described above for the
+      decompressor.
+
+Of course, Kakadu also provides extensive support for many Part-2
+features, but strict conformance with all possible Part-1 codestreams is
+the most serious objective.
+
+We are not aware of any limitations other than those mentioned above.
+The implementation supports and indeed can generate any legal combination
+of code-stream parameters and organizations.  Amongst these, of course,
+are numerous combinations which make no sense or may have surprising
+implications.  Examples include the selection of different numbers of quality
+layers for each tile, or different numbers of tile-parts for each tile.
+
+-------------------------------------------------------------------------------
+EXAMPLE APPLICATIONS
+-------------------
+   kdu_compress (all platforms)
+   ------------
+     * Compresses an existing image with any number of components.
+     * Input file formats include PBM, BMP, PGM, PPM and RAW
+     * Use "-u" to get a compact usage statement and
+           "-usage" for comprehensive documentation
+       Automatically displays comprehensive help for code-stream attributes
+       when prompted with the attribute name (explained in the usage).
+     * Yields comparable or marginally superior compression to the VM.
+     * Automatically incorporates visual weights when working with colour.
+     * Can compress rotated views of the image.
+     * Convenient mechanism for specifying (auto-deriving) quality layer
+       targets.  You can specify multiple rates directly or request multiple
+       layers with an upper bound, upper and lower bounds or no bounds on
+       the available layer bit-rates.
+     * Two convenient mechanisms for specifying ROI (region of interest)
+       geometries (rectangular, and arbitrary regions based on thresholding
+       an auxiliary image, which is automatically scaled as necessary).
+     * Can target any (as far as I know) legal combination of code-stream
+       parameters for any tile, component or tile-component.
+     * Can generate a raw unwrapped code-stream file or else it can wrap
+       the code-stream in a JP2 file.  Supports explicit construction of
+       most useful JP2 attributes including various useful colour spaces
+       described by embedded ICC profiles.
+     * Can process palettized images (using the BMP format), compressing
+       either the colour samples or the palette indices, so long as the
+       JP2 file format is used to encapsulate the palette mapping
+       information.
+     * Can generate any number of tile-parts, optionally inserting PLT
+       marker segments into the relevant tile-part headers for efficient
+       random access to the compressed file.
+
+   kdu_expand (all platforms)
+   ----------
+     * Should decompress any Part 1 JPEG2000 code-stream (see "known
+       limitations" section above).
+     * Can process unwrapped JPEG2000 code-streams as well as code-streams
+       which are wrapped in the optional JP2 file format.  Depalettizes
+       images which are represented by compressed palette indices.
+     * Supports output files of type BMP, PGM, PPM and RAW, with appropriate
+       bit-depth conversions.
+     * Supports input file trunctation to any desired length (bit-rate).
+     * Allows reduction of resolution or number of image components.
+     * Supports decompression of any rectangular region of interest.
+     * Supports decompression of rotated views of the image.
+     * Supports error resilient decompression.
+     * Supports fussy decompression, with substantial consistency checking.
+
+   kdu_transcode (all platforms)
+   -------------
+     * Transforms an existing code-stream into a new code-stream, representing
+       the original image in a different away.  Since nothing new is
+       demonstrated by fully decompressing and recompressing the image,
+       this application is deliberately restricted to those operations which
+       can be performed in the compressed domain.  Fortunately, JPEG2000
+       admits many such compressed domain manipulations.  Apart from
+       computational savings, an obvious benefit of this is the potential
+       (often realized) for lossless transcoding.
+     * Operations which discard information
+       -- Can reduce the number of image components
+       -- Can reduce image resolution
+       -- Can reduce image bit-rate, usually producing a superior result to
+          that obtained by truncating an existing code-stream, even when it
+          has a layer-progressive organization.
+       -- Can reduce the number of quality layers (can also increase the
+          number of layers, or modify it on a tile-by-tile basis, with
+          interesting consequences).
+     * Operations which resequence information
+       -- Can change the progression sequence within any tile
+       -- Can split up tiles into tile-parts or collapse tile-parts back
+          together, on the basis of progression sequence changes, or
+          resolution, layer or component indices.
+       -- Can change precinct dimensions -- this allows conversion to
+          a spatially progressive organization, even when the original
+          code-stream may not have used precincts.
+     * Operations which require block decoding and recoding
+       -- Can change any of the block coder mode switches.  This can be used
+          to render a code-stream more or less error resilient, more or
+          less efficient or more or less amenable to certain types of
+          parallel implementations.
+       -- Can rotate the compressed image.  Note that this operation is
+          not guaranteed to be truly lossless (adding no extra distortion)
+          unless the original code-stream has its code-block truncation
+          points all at bit-plane boundaries.  After any rotation operation,
+          this condition will be true and so subsequent rotations are
+          guaranteed to be lossless (no error build-up).
+     * Operations which add information
+       -- Can insert PLT marker segments into the code-stream to enable
+          later random access into large files by "kdu_expand", "kdu_show",
+          "kdu_server" or any other application built around the on-demand
+          parsing services offered by the "kdu_codestream" object.
+
+   kdu_merge (all platforms)
+   ---------
+     * Can generate JPX or MJ2 files by merging imagery components found
+       in supplied raw codestreams, JP2, JPX or MJ2 files (or any combination
+       thereof).
+     * Can be used to supply new colour spaces or create novel combinations
+       from components found in the input imagery.
+     * Can be used to add alpha channels, based on supplied imagery, to
+       assist in the creation of interesting compositions.
+     * Can be used to create a rich variety of JPX animations and
+       compositions, including albums, fades, sprite animation and so forth.
+     * Can be used to create a JPX file containing codestream and/or
+       rendering descriptions from one or more sources and rich metadata from
+       another JPX source.
+
+   kdu_maketlm (all platforms)
+   -----------
+     * Adds optional TLM (Tile-Part Length, Main header) marker segments
+       into the main header to facilitate random access into large files
+       by "kdu_expand", "kdu_show", "kdu_server" or any other application
+       built around the on-demand parsing services offered by the
+       "kdu_codestream" object.
+     * From v4.3, the core codestream generation machinery can now add
+       TLM marker segments on the fly, rendering this utility less
+       important, but it can generally find more efficient TLM
+       representations than the facility associated with the ORGgen_tlm
+       coding parameter attribute used by the compression tools.
+
+   kdu_v_compress (all platforms)
+   --------------
+     * Compress a sequence of video frames to a single Motion JPEG2000
+       file, or to a much simpler file format supplied for illustration
+       purposes.
+     * Supports sub-sampled chrominance formats, as well as full colour
+       RGB.
+     * Includes rate-distortion slope prediction to improve the compression
+       throughput, without sacrificing rate-control behaviour.  Typical
+       speedups are about 40%.  You can turn this off using
+       `-no_slope_prediction'.
+     * Allows CPU timing statistics to be collected to determine
+       Kakadu's processing throughput.
+
+   kdu_v_expand (all platforms)
+   ------------
+     * Decompress a Motion JPEG2000 file (or the simpler file format
+       supplied for illustration purposes) into video frames.
+     * Writes output to files.
+     * Allows CPU timing statistics to be collected to determine
+       Kakadu's processing throughput.
+
+   kdu_show (for Windows and Mac OSX platforms)
+   --------------------------------------------
+     * A convenient utility to interactively view a JPEG2000 compressed
+       image of any size.  Decompressed sample buffering is maintained only
+       of the visible window (and a small surround) so that navigation
+       implies on-demand decompression of appropriate regions.  This allows
+       efficient rendering of very large images indeed.
+     * Supports both local JPEG2000 files and remotely served JPEG2000
+       imagery via JPIP.
+     * Allows interactive zooming, rotation, scrolling, window resizing,
+       image component selection, quality layer truncation, video playback,
+       etc.  Accelerator keys are provided for virtually all forms of
+       interaction to facilitate rapid navigation through large images.
+     * The application survives any error conditions signalled from
+       the core Kakadu system, allowing the user to re-open an image with a
+       different error response mode (e.g., the resilient mode), or to
+       open a different image.  Moreover, error conditions caught at any
+       point in the processing (even deep inside the core Kakadu system) do
+       not result in memory leaks.
+     * Provides comprehensive information concerning code-stream parameters
+       and tile structure, via the "Properties" item on the "File" menu.
+     * Fully supports the JP2 file format (JP2), the much more extensive
+       JPX file format, the Motion JPEG2000 video file format, and
+       unwrapped code-stream files (J2C).  Performs all colour management,
+       interpolation and palette processing operations required of a
+       conforming JP2/JPX/MJ2 reader, plus composition, animation and
+       metadata display operations, expected of a fully fledged JPX reader.
+     * Opens multiple viewing windows in the same application -- particularly
+       interesting when browsing remotely located JPEG2000 source material
+       via JPIP, since then the cached data is shared amongst windows, while
+       each window has its own asynchronous request queue (a real or virtual
+       channel to the server).
+     * Automatically generates a metadata catalog which appears as a side-bar
+       to the image viewing window and allows dynamic navigation based on
+       metadata which is associated with specific image-entities or regions
+       of interest.
+     * Provides advanced metadata editing facilities for JPX files.
+     * The implementation of this application includes a powerful region
+       management object which may prove most useful in constructing other
+       interactive applications for JPEG2000.  The region management and
+       frame compositing object is completely platform independent.
+
+   kdu_server (all platforms)
+   ------------------------------------------------------------------------
+     * Can serve any valid JPEG2000 source (or multiple sources) to one or
+       more connected clients using the JPIP protocol (IS15444-9).
+       The "kdu_show" and "kdu_macshow" applications provide powerful JPIP
+       clients, demonstrating almost all of the server's capabilities.
+     * Offers remote administration and delegation of service responsibilities
+       to multiple alternate hosts for serving thousands of clients
+       simultaneously from a single set of web links.
+     * Supports JPIP sessions with multiple channels.
+     * The JPIP protocol is derived in part from the original JPIK protocol
+       shipped with Kakadu version 3.0.  The original JPIK server application
+       and client objects are no longer shipped with Kakadu, though.
+     * For more information, consult the "Usage_Examples.txt" file and the
+       "jpip-kakadu.pdf" document.
+
+   kdu_server_admin (all platforms)
+   --------------------------------
+     * Remote administration application for "kdu_server".
+     * Passwords are AES encrypted, but there is no other use of encryption.
+     * Allows graceful shutdown, statistics, and historical information
+       retrieval.
+
+-------------------------------------------------------------------------------
+OTHER INTELLECTUAL PROPERTY
+---------------------------
+   As noted in the disclaimer appearing at the head of this file, neither
+the author nor the university accept any responsibility for possible
+infringement of intellectual property rights which may be claimed in
+regard to products built from this software.  Reasonable implementations
+of Part 1 of the standard are intended to be possible on a royalty free
+basis and most of the organizations holding key patents have issued
+statements to that effect.  On the other hand, a number of smaller
+companies have issued statements suggesting that their own intellectual
+property rights may be infringed by some or all implementations.
+   The JPEG2000 committee (ISO/IEC JTC1/SC29/WG1) has deliberated a number
+of such claims and found them to be without sufficient basis.
+However, this does not constitute any guarantee as to whether or not a
+court of law might deem infringement to have taken place.
+   Many of the techniques and concepts employed in the Kakadu software may
+be traced to prior art dating from 1994 or earlier.  In June/July 1994,
+Dr. Taubman made publically available the software which he used to conduct
+his own PhD research, publicizing this on appropriate news groups.  A number
+of research groups have since worked with that software, which embodied
+such concepts as: 1) incremental (or pipelined) DWT processing (in the temporal
+direction for video); 2) line-oriented processing of spatial DWT operations,
+for improved memory access bandwidth; 3) arithmetic coding of subband
+magnitude bit-planes; 4) context adaptive sign coding; 5) context broadcasting
+techniques and lookup tables for fast context label identification;
+6) independently compressed code-blocks (the basic ideas and the terminology
+used by the JPEG2000 standard are in fact derived from that work) with
+limited extent in space (as well as time, for video) within the subband
+domain; 7) compressed representations with multiple dimensions of
+scalability; and 8) efficient identification of the most significant
+bit-plane contributed by each code-block through a separate signalling
+method to that used for the actual embedded block coding.
+   Implementation tricks and strategies are not generally published in the
+image and video compression literature, unless they represent key
+theoretical developments.  This makes it difficult to trace prior art
+for some commonly employed and reasonably  obvious implementation tricks.
+   Since DWT implementations appear to be a source of contended claims,
+we note that the implementation currently employed by Kakadu is that of
+a minimal lifting state machine.  In such an implementation, line buffers
+are maintained for each state in the vertical transform's state machine
+and the number of such states is identical to the number of lifting steps
+(4, in the case of the CDF 9/7 DWT kernels; 2 in the case of the
+Spline 5/3 DWT kernels).  The relevant state machine is described in the
+book by Taubman and Marcellin.
+   We also note here that the region-based decompression techniques used
+by Kakadu for efficient interactive rendering of compressed images
+(the "kdu_show" utility demonstrates this) do not employ any of the
+overlap-add-save type optimizations which are the subject of a patent held
+by LizardTech.  Instead, to decompress a region of the image which is
+needed for the current view, Kakadu essentially decompresses everything
+from scratch, skipping the actual work involved in decompressing any
+data which has no impact on the desired region.  This strategy is
+somewhat inefficient when multiple regions are decompressed, since many
+of the block decoding and DWT operations are performed over again.
+Nevertheless, the implementation is sufficiently efficient that users
+are unlikely to object to the small rendering delays experienced with
+typical display sizes.
+
+-------------------------------------------------------------------------------
+COPYRIGHT
+---------
+The Kakadu software is protected by Copyright.
+The creator of the software is Dr. David Taubman,
+  The University of New South Wales,
+  UNSW, Sydney NSW 2052, Australia
+The copyright owner is Unisearch Ltd, Australia (commercial arm of UNSW)
+
+In order to use, modify, redistribute or profit from this software in any
+manner, you must obtain an appropriate license from the copyright owner.
+Licenses appropriate for commercial and non-commercial activities may be
+obtained by following the links available at the following URL:
+"http://www.kakadusoftware.com".
